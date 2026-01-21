@@ -247,6 +247,10 @@ function startLevel(level) {
     game.player.x = game.map.spawnPoint.x;
     game.player.y = game.map.spawnPoint.y;
     game.player.angle = 0;
+    game.player.pitch = 0;
+
+    // Her level başında can yenile
+    game.player.health = game.player.maxHealth;
 
     spawnEnemiesForLevel(level);
     spawnLootsFromMap(game.map.lootSpawns);

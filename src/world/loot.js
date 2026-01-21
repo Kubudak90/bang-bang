@@ -127,7 +127,7 @@ export function updateLoots(player, deltaTime) {
 }
 
 /**
- * Loot topla
+ * Loot topla - her zaman toplanır, fayda varsa uygulanır
  */
 function collectLoot(loot, player) {
     if (!loot || !player) return;
@@ -135,29 +135,28 @@ function collectLoot(loot, player) {
     const template = LOOT_TYPES[loot.type];
     if (!template) return;
 
+    // Her zaman topla
+    loot.collected = true;
+
     switch (template.type) {
         case 'health': {
-            if (player.health < player.maxHealth) {
-                player.health = Math.min(player.health + template.value, player.maxHealth);
-                loot.collected = true;
-                console.log(`+${template.value} HP`);
-                game.pickupFlash = { color: '#00ff00', intensity: 1, time: 0.2 };
+            const oldHealth = player.health;
+            player.health = Math.min(player.health + template.value, player.maxHealth);
+            const gained = player.health - oldHealth;
+            if (gained > 0) {
+                console.log(`+${gained} HP`);
             }
+            game.pickupFlash = { color: '#00ff00', intensity: 1, time: 0.2 };
             break;
         }
 
         case 'ammo': {
             const weapon = WEAPONS[template.weapon];
-            if (weapon && weapon.maxAmmo !== Infinity && weapon.ammo < weapon.maxAmmo) {
+            if (weapon && weapon.maxAmmo !== Infinity) {
                 addAmmo(template.weapon, template.value);
-                loot.collected = true;
                 console.log(`+${template.value} ${template.weapon} ammo`);
-                game.pickupFlash = { color: '#ffcc00', intensity: 1, time: 0.2 };
-            } else if (weapon && weapon.maxAmmo === Infinity) {
-                // Pistol ammo için - her zaman topla ama efekt göster
-                loot.collected = true;
-                game.pickupFlash = { color: '#ffcc00', intensity: 1, time: 0.2 };
             }
+            game.pickupFlash = { color: '#ffcc00', intensity: 1, time: 0.2 };
             break;
         }
 
@@ -168,10 +167,9 @@ function collectLoot(loot, player) {
                 if (ammoAmount > 0) {
                     addAmmo(template.weapon, ammoAmount);
                 }
-                loot.collected = true;
                 console.log(`${template.name} alindi!`);
-                game.pickupFlash = { color: '#ff8800', intensity: 1, time: 0.2 };
             }
+            game.pickupFlash = { color: '#ff8800', intensity: 1, time: 0.2 };
             break;
         }
     }

@@ -37,7 +37,7 @@ export const COLORS = {
 
 export const DEBUG = {
     SHOW_FPS: true,
-    SHOW_MINIMAP: true,
+    SHOW_MINIMAP: false,  // Kapalı - sürpriz karşılaşmalar için
     SHOW_RAYS: false,
     MINIMAP_SCALE: 8,
     MINIMAP_PADDING: 10

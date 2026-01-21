@@ -130,38 +130,50 @@ export function updateLoots(player, deltaTime) {
  * Loot topla
  */
 function collectLoot(loot, player) {
+    if (!loot || !player) return;
+
     const template = LOOT_TYPES[loot.type];
+    if (!template) return;
 
     switch (template.type) {
-        case 'health':
+        case 'health': {
             if (player.health < player.maxHealth) {
                 player.health = Math.min(player.health + template.value, player.maxHealth);
                 loot.collected = true;
-                console.log(`💚 +${template.value} HP`);
-                game.pickupFlash = { color: '#00ff00', intensity: 1 };
+                console.log(`+${template.value} HP`);
+                game.pickupFlash = { color: '#00ff00', intensity: 1, time: 0.2 };
             }
             break;
+        }
 
-        case 'ammo':
+        case 'ammo': {
             const weapon = WEAPONS[template.weapon];
-            if (weapon && weapon.ammo < weapon.maxAmmo) {
+            if (weapon && weapon.maxAmmo !== Infinity && weapon.ammo < weapon.maxAmmo) {
                 addAmmo(template.weapon, template.value);
                 loot.collected = true;
-                console.log(`🔫 +${template.value} ${template.weapon} ammo`);
-                game.pickupFlash = { color: '#ffcc00', intensity: 1 };
+                console.log(`+${template.value} ${template.weapon} ammo`);
+                game.pickupFlash = { color: '#ffcc00', intensity: 1, time: 0.2 };
+            } else if (weapon && weapon.maxAmmo === Infinity) {
+                // Pistol ammo için - her zaman topla ama efekt göster
+                loot.collected = true;
+                game.pickupFlash = { color: '#ffcc00', intensity: 1, time: 0.2 };
             }
             break;
+        }
 
-        case 'weapon':
-            // Silah ver + başlangıç mermisi
+        case 'weapon': {
             const wpn = WEAPONS[template.weapon];
             if (wpn) {
-                addAmmo(template.weapon, Math.floor(wpn.maxAmmo * 0.5));
+                const ammoAmount = wpn.maxAmmo === Infinity ? 0 : Math.floor(wpn.maxAmmo * 0.5);
+                if (ammoAmount > 0) {
+                    addAmmo(template.weapon, ammoAmount);
+                }
                 loot.collected = true;
-                console.log(`🔫 ${template.name} alındı!`);
-                game.pickupFlash = { color: '#ff8800', intensity: 1 };
+                console.log(`${template.name} alindi!`);
+                game.pickupFlash = { color: '#ff8800', intensity: 1, time: 0.2 };
             }
             break;
+        }
     }
 }
 

@@ -605,6 +605,14 @@ function renderGame(viewPlayer) {
         game.damageFlash.time -= game.deltaTime;
     }
 
+    // Pickup flash
+    if (game.pickupFlash && game.pickupFlash.time > 0) {
+        const alpha = game.pickupFlash.intensity * (game.pickupFlash.time / 0.2);
+        ctx.fillStyle = game.pickupFlash.color.replace(')', `, ${alpha * 0.3})`).replace('rgb', 'rgba');
+        ctx.fillRect(0, 0, SCREEN.WIDTH, SCREEN.HEIGHT);
+        game.pickupFlash.time -= game.deltaTime;
+    }
+
     // Debug info
     updateDebugInfo(viewPlayer);
 }

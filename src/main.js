@@ -574,9 +574,10 @@ function gatherInput() {
 function renderGame(viewPlayer) {
     const ctx = game.ctx;
     const rays = castRays(viewPlayer, game.map);
+    const pitch = viewPlayer.pitch || 0;
 
     clearScreen(ctx);
-    renderWorld(ctx, rays, game.map);
+    renderWorld(ctx, rays, game.map, pitch);
 
     // Sprites (enemies/players + loot)
     renderSprites(ctx, rays);

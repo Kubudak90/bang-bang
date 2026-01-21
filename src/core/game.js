@@ -142,6 +142,7 @@ export function addPlayer(playerId, playerData) {
         x: playerData.x || 5,
         y: playerData.y || 5,
         angle: playerData.angle || 0,
+        pitch: 0, // Dikey bakış
 
         // State
         health: playerData.health || 100,

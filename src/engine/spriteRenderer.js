@@ -13,6 +13,9 @@ export function renderSprites(ctx, rays) {
     const viewPlayer = game.mode === 'multiplayer' ? game.localPlayer : game.player;
     if (!viewPlayer) return;
 
+    // Pitch offset
+    const pitch = viewPlayer.pitch || 0;
+
     const enemies = game.enemies || [];
     const loots = getLoots() || [];
 
@@ -93,11 +96,11 @@ export function renderSprites(ctx, rays) {
     // Her sprite'ı çiz
     for (const sprite of allSprites) {
         if (sprite.type === 'enemy') {
-            renderEnemySprite(ctx, sprite.entity, sprite.dist, sprite.angle, rays, viewPlayer);
+            renderEnemySprite(ctx, sprite.entity, sprite.dist, sprite.angle, rays, viewPlayer, pitch);
         } else if (sprite.type === 'player') {
-            renderRemotePlayerSprite(ctx, sprite.entity, sprite.dist, sprite.angle, rays, viewPlayer);
+            renderRemotePlayerSprite(ctx, sprite.entity, sprite.dist, sprite.angle, rays, viewPlayer, pitch);
         } else if (sprite.type === 'loot') {
-            renderLootSprite(ctx, sprite.entity, sprite.dist, sprite.angle, rays, viewPlayer);
+            renderLootSprite(ctx, sprite.entity, sprite.dist, sprite.angle, rays, viewPlayer, pitch);
         }
     }
 }
@@ -105,7 +108,7 @@ export function renderSprites(ctx, rays) {
 /**
  * Uzak oyuncu sprite'ı render et
  */
-function renderRemotePlayerSprite(ctx, player, dist, angle, rays, viewPlayer) {
+function renderRemotePlayerSprite(ctx, player, dist, angle, rays, viewPlayer, pitch = 0) {
     let angleDiff = angle - viewPlayer.angle;
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
@@ -115,7 +118,7 @@ function renderRemotePlayerSprite(ctx, player, dist, angle, rays, viewPlayer) {
     const screenX = SCREEN.WIDTH / 2 + (angleDiff / RAYCASTER.FOV) * SCREEN.WIDTH;
     const spriteHeight = (1 / dist) * SCREEN.HEIGHT * 0.8;
     const spriteWidth = spriteHeight * 0.6;
-    const screenY = SCREEN.HEIGHT / 2;
+    const screenY = SCREEN.HEIGHT / 2 + pitch;
 
     const spriteLeft = Math.floor(screenX - spriteWidth / 2);
     const spriteRight = Math.floor(screenX + spriteWidth / 2);
@@ -185,7 +188,7 @@ function renderPlayerColumn(ctx, screenX, centerY, height, spriteX, player) {
 /**
  * Düşman sprite'ı render et
  */
-function renderEnemySprite(ctx, enemy, dist, angle, rays, viewPlayer) {
+function renderEnemySprite(ctx, enemy, dist, angle, rays, viewPlayer, pitch = 0) {
     const player = viewPlayer;
 
     // Oyuncuya göre açı farkı
@@ -203,8 +206,8 @@ function renderEnemySprite(ctx, enemy, dist, angle, rays, viewPlayer) {
     const spriteHeight = (1 / dist) * SCREEN.HEIGHT * 0.8;
     const spriteWidth = spriteHeight * 0.8;
 
-    // Ekrandaki Y pozisyonu (ortada)
-    const screenY = SCREEN.HEIGHT / 2;
+    // Ekrandaki Y pozisyonu (pitch offset ile)
+    const screenY = SCREEN.HEIGHT / 2 + pitch;
 
     // Ölüm animasyonu
     let scale = 1;
@@ -532,7 +535,7 @@ function renderEnemyColumn(ctx, screenX, centerY, height, spriteX, enemy) {
 /**
  * Loot sprite'ı render et
  */
-function renderLootSprite(ctx, loot, dist, angle, rays, viewPlayer) {
+function renderLootSprite(ctx, loot, dist, angle, rays, viewPlayer, pitch = 0) {
     const player = viewPlayer;
 
     let angleDiff = angle - player.angle;
@@ -547,8 +550,8 @@ function renderLootSprite(ctx, loot, dist, angle, rays, viewPlayer) {
     const spriteHeight = (0.5 / dist) * SCREEN.HEIGHT * 0.6;
     const spriteWidth = spriteHeight;
 
-    // Yerde duruyor (biraz aşağıda)
-    const screenY = SCREEN.HEIGHT / 2 + spriteHeight * 0.5;
+    // Yerde duruyor (biraz aşağıda, pitch offset ile)
+    const screenY = SCREEN.HEIGHT / 2 + spriteHeight * 0.5 + pitch;
 
     // Yukarı aşağı sallanma animasyonu
     const bobAmount = Math.sin(performance.now() / 300 + loot.bobOffset) * 5;

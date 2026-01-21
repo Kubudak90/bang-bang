@@ -3,6 +3,7 @@
 import { PLAYER } from '../core/config.js';
 
 let mouseDeltaX = 0;
+let mouseDeltaY = 0;
 let isPointerLocked = false;
 
 /**
@@ -26,12 +27,20 @@ export function initMouse(canvas) {
 }
 
 /**
- * Mouse delta'sını al ve sıfırla (consume pattern)
- * Her frame bir kez çağrılmalı
+ * Mouse X delta'sını al ve sıfırla (yatay bakış)
  */
 export function consumeMouseDelta() {
     const delta = mouseDeltaX * PLAYER.MOUSE_SENSITIVITY;
     mouseDeltaX = 0;
+    return delta;
+}
+
+/**
+ * Mouse Y delta'sını al ve sıfırla (dikey bakış)
+ */
+export function consumeMouseDeltaY() {
+    const delta = mouseDeltaY * PLAYER.MOUSE_SENSITIVITY;
+    mouseDeltaY = 0;
     return delta;
 }
 
@@ -45,5 +54,6 @@ export function isLocked() {
 function handleMouseMove(e) {
     if (isPointerLocked) {
         mouseDeltaX += e.movementX;
+        mouseDeltaY += e.movementY;
     }
 }

@@ -1,16 +1,20 @@
 // Player - pozisyon, açı, hareket
 
-import { PLAYER } from '../core/config.js';
+import { PLAYER, SCREEN } from '../core/config.js';
 import { normalizeAngle } from '../core/utils.js';
 import { getKeys } from '../input/keyboard.js';
-import { consumeMouseDelta } from '../input/mouse.js';
+import { consumeMouseDelta, consumeMouseDeltaY } from '../input/mouse.js';
 import { game } from '../core/game.js';
+
+// Dikey bakış limitleri
+const MAX_PITCH = SCREEN.HEIGHT * 0.4; // Maksimum yukarı/aşağı bakış
 
 export function createPlayer() {
     return {
         x: PLAYER.START_X,
         y: PLAYER.START_Y,
         angle: PLAYER.START_ANGLE,
+        pitch: 0, // Dikey bakış (horizon offset)
         radius: PLAYER.RADIUS,
         health: 100,
         maxHealth: 100
@@ -23,12 +27,11 @@ export function createPlayer() {
 export function updatePlayer(player, map) {
     const dt = game.deltaTime;
     const keys = getKeys();
-    
-    // --- Dönme ---
-    // Mouse'tan gelen delta
-    const mouseDelta = consumeMouseDelta();
-    player.angle += mouseDelta;
-    
+
+    // --- Yatay Dönme ---
+    const mouseDeltaX = consumeMouseDelta();
+    player.angle += mouseDeltaX;
+
     // Klavye ile dönme (backup/alternatif)
     if (keys.turnLeft) {
         player.angle -= PLAYER.ROTATION_SPEED * dt;
@@ -36,9 +39,16 @@ export function updatePlayer(player, map) {
     if (keys.turnRight) {
         player.angle += PLAYER.ROTATION_SPEED * dt;
     }
-    
+
     // Açıyı normalize et
     player.angle = normalizeAngle(player.angle);
+
+    // --- Dikey Bakış (Pitch) ---
+    const mouseDeltaY = consumeMouseDeltaY();
+    player.pitch -= mouseDeltaY * 150; // Sensitivity ayarı
+
+    // Pitch'i limitle
+    player.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, player.pitch));
     
     // --- Hareket ---
     let moveX = 0;

@@ -61,12 +61,22 @@ function initFrameBuffer(ctx) {
     console.log('🖼️ Frame buffer başlatıldı (ImageData batch rendering)');
 }
 
+// Current pitch offset (set by renderWorld)
+let currentPitch = 0;
+
 /**
  * Dünyayı render et
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Array} rays
+ * @param {Object} map
+ * @param {number} pitch - Dikey bakış offset (optional)
  */
-export function renderWorld(ctx, rays, map) {
+export function renderWorld(ctx, rays, map, pitch = 0) {
     // Frame buffer'ı başlat (lazım olduğunda)
     initFrameBuffer(ctx);
+
+    // Pitch'i kaydet
+    currentPitch = pitch;
 
     // Zemin ve tavan (gradient lookup ile hızlı)
     renderFloorAndCeiling();
@@ -80,48 +90,60 @@ export function renderWorld(ctx, rays, map) {
 
 /**
  * Zemin ve tavan render (pre-calculated gradient ile)
+ * Pitch değerine göre horizon kaydırılır
  */
 function renderFloorAndCeiling() {
-    const halfHeight = SCREEN.HEIGHT / 2;
+    const height = SCREEN.HEIGHT;
     const width = SCREEN.WIDTH;
+    const halfHeight = height / 2;
 
-    // Tavan
-    for (let y = 0; y < halfHeight; y++) {
-        const gradIdx = y * 3;
-        const r = ceilingGradient[gradIdx];
-        const g = ceilingGradient[gradIdx + 1];
-        const b = ceilingGradient[gradIdx + 2];
+    // Pitch'e göre horizon line'ı kaydır
+    const horizonY = Math.floor(halfHeight + currentPitch);
 
+    // Tüm ekranı doldur
+    for (let y = 0; y < height; y++) {
         const rowStart = y * width * 4;
-        for (let x = 0; x < width; x++) {
-            const idx = rowStart + x * 4;
-            frameBuffer[idx] = r;
-            frameBuffer[idx + 1] = g;
-            frameBuffer[idx + 2] = b;
-            frameBuffer[idx + 3] = 255;
-        }
-    }
 
-    // Zemin
-    for (let y = halfHeight; y < SCREEN.HEIGHT; y++) {
-        const gradIdx = (y - halfHeight) * 3;
-        const r = floorGradient[gradIdx];
-        const g = floorGradient[gradIdx + 1];
-        const b = floorGradient[gradIdx + 2];
+        if (y < horizonY) {
+            // Tavan
+            const gradY = Math.floor((y / horizonY) * (halfHeight - 1));
+            const clampedGradY = Math.max(0, Math.min(halfHeight - 1, gradY));
+            const gradIdx = clampedGradY * 3;
+            const r = ceilingGradient[gradIdx];
+            const g = ceilingGradient[gradIdx + 1];
+            const b = ceilingGradient[gradIdx + 2];
 
-        const rowStart = y * width * 4;
-        for (let x = 0; x < width; x++) {
-            const idx = rowStart + x * 4;
-            frameBuffer[idx] = r;
-            frameBuffer[idx + 1] = g;
-            frameBuffer[idx + 2] = b;
-            frameBuffer[idx + 3] = 255;
+            for (let x = 0; x < width; x++) {
+                const idx = rowStart + x * 4;
+                frameBuffer[idx] = r;
+                frameBuffer[idx + 1] = g;
+                frameBuffer[idx + 2] = b;
+                frameBuffer[idx + 3] = 255;
+            }
+        } else {
+            // Zemin
+            const floorHeight = height - horizonY;
+            const gradY = Math.floor(((y - horizonY) / floorHeight) * (halfHeight - 1));
+            const clampedGradY = Math.max(0, Math.min(halfHeight - 1, gradY));
+            const gradIdx = clampedGradY * 3;
+            const r = floorGradient[gradIdx];
+            const g = floorGradient[gradIdx + 1];
+            const b = floorGradient[gradIdx + 2];
+
+            for (let x = 0; x < width; x++) {
+                const idx = rowStart + x * 4;
+                frameBuffer[idx] = r;
+                frameBuffer[idx + 1] = g;
+                frameBuffer[idx + 2] = b;
+                frameBuffer[idx + 3] = 255;
+            }
         }
     }
 }
 
 /**
  * Duvarları texture mapping ile render et
+ * Pitch değerine göre duvarlar kaydırılır
  */
 function renderWalls(rays, map) {
     const width = SCREEN.WIDTH;
@@ -135,9 +157,9 @@ function renderWalls(rays, map) {
         // Duvar yüksekliği
         const wallHeight = (RAYCASTER.WALL_HEIGHT / ray.correctedDistance) * height;
 
-        // Ekrandaki Y koordinatları
-        const drawStart = Math.floor((height - wallHeight) / 2);
-        const drawEnd = Math.floor((height + wallHeight) / 2);
+        // Ekrandaki Y koordinatları (pitch offset ile)
+        const drawStart = Math.floor((height - wallHeight) / 2 + currentPitch);
+        const drawEnd = Math.floor((height + wallHeight) / 2 + currentPitch);
 
         // Hangi texture kullanılacak
         const tileValue = map ? map.getTile(ray.mapX, ray.mapY) : 1;

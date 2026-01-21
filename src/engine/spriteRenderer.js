@@ -236,12 +236,17 @@ function renderEnemySprite(ctx, enemy, dist, angle, rays, viewPlayer, pitch = 0)
  */
 function renderEnemyColumn(ctx, screenX, centerY, height, spriteX, enemy) {
     const halfHeight = height / 2;
-    const top = centerY - halfHeight;
     const x = spriteX;
     const time = performance.now() / 1000;
 
-    // Animasyon fazı (yürüme için)
-    const walkPhase = enemy.isAlert ? Math.sin(time * 8) * 0.5 : 0;
+    // Yürüme animasyonu - daha belirgin
+    const isMoving = enemy.isAlert && !enemy.isDead;
+    const walkSpeed = enemy.type === 'charger' ? 14 : 10;
+    const walkPhase = isMoving ? Math.sin(time * walkSpeed) : 0;
+
+    // Vücut sallanması (yürürken yukarı aşağı)
+    const bodyBob = isMoving ? Math.abs(Math.sin(time * walkSpeed * 2)) * height * 0.02 : 0;
+    const top = centerY - halfHeight + bodyBob;
 
     // Renk (hurt flash efekti)
     let bodyColor = enemy.color;
@@ -263,6 +268,10 @@ function renderEnemyColumn(ctx, screenX, centerY, height, spriteX, enemy) {
 
     // Pantolon rengi
     const pantsColor = isCharger ? '#3a2a1a' : (isShooter ? '#1a3a1a' : '#2a3a5a');
+
+    // Silah doğrultma animasyonu
+    const isAiming = enemy.isAlert && (isShooter || isGrunt);
+    const aimPhase = isAiming ? 0.3 + Math.sin(time * 3) * 0.05 : 0;
 
     // ============================================
     // === CHARGER: KASK ===
@@ -440,11 +449,11 @@ function renderEnemyColumn(ctx, screenX, centerY, height, spriteX, enemy) {
     // ============================================
     // === KOLLAR (animasyonlu) ===
     // ============================================
-    const armSwing = walkPhase * 0.03; // Kol sallanması
+    const armSwing = walkPhase * 0.08; // Daha belirgin kol sallanması
 
-    // Sol kol
+    // Sol kol (nişan almıyorken normal sallanır)
     if (x >= 0.08 && x <= 0.24) {
-        const armY = top + height * (0.22 + armSwing);
+        const armY = top + height * (0.22 + (isAiming ? 0 : armSwing));
         // Üst kol (giysi)
         ctx.fillStyle = bodyColor;
         ctx.fillRect(screenX, armY, 1, height * 0.16);
@@ -454,60 +463,122 @@ function renderEnemyColumn(ctx, screenX, centerY, height, spriteX, enemy) {
         // El
         ctx.fillStyle = skinColorDark;
         ctx.fillRect(screenX, armY + height * 0.26, 1, height * 0.04);
+
+        // Sol el silah tutuyorsa (çift el nişan)
+        if (isAiming && isShooter && x >= 0.12 && x <= 0.20) {
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(screenX, armY + height * 0.12, 1, height * 0.08);
+        }
     }
 
-    // Sağ kol
-    if (x >= 0.76 && x <= 0.92) {
-        const armY = top + height * (0.22 - armSwing);
-        ctx.fillStyle = bodyColor;
-        ctx.fillRect(screenX, armY, 1, height * 0.16);
-        ctx.fillStyle = skinColor;
-        ctx.fillRect(screenX, armY + height * 0.14, 1, height * 0.14);
-        ctx.fillStyle = skinColorDark;
-        ctx.fillRect(screenX, armY + height * 0.26, 1, height * 0.04);
+    // Sağ kol (silah tutan kol)
+    if (x >= 0.76 && x <= 0.95) {
+        // Nişan alırken kol öne uzanır
+        const armYOffset = isAiming ? -0.08 : -armSwing;
+        const armY = top + height * (0.22 + armYOffset);
 
-        // Shooter: Silah
-        if (isShooter && x >= 0.82 && x <= 0.90) {
-            ctx.fillStyle = '#2a2a2a';
-            ctx.fillRect(screenX, armY + height * 0.20, 1, height * 0.18);
-            // Silah namlusu
-            ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(screenX, armY + height * 0.16, 1, height * 0.06);
+        // Kol gövdeden ayrı çizilecek (nişan pozisyonu)
+        if (isAiming) {
+            // Üst kol (omuzdan dirseğe)
+            ctx.fillStyle = bodyColor;
+            ctx.fillRect(screenX, armY, 1, height * 0.12);
+            // Alt kol (dirsekten bileğe) - öne uzanmış
+            ctx.fillStyle = skinColor;
+            ctx.fillRect(screenX, armY + height * 0.08, 1, height * 0.18);
+            // El
+            ctx.fillStyle = skinColorDark;
+            ctx.fillRect(screenX, armY + height * 0.22, 1, height * 0.06);
+        } else {
+            ctx.fillStyle = bodyColor;
+            ctx.fillRect(screenX, armY, 1, height * 0.16);
+            ctx.fillStyle = skinColor;
+            ctx.fillRect(screenX, armY + height * 0.14, 1, height * 0.14);
+            ctx.fillStyle = skinColorDark;
+            ctx.fillRect(screenX, armY + height * 0.26, 1, height * 0.04);
+        }
+
+        // Silah (Shooter ve Grunt için)
+        if ((isShooter || isGrunt) && x >= 0.80 && x <= 0.95) {
+            if (isAiming) {
+                // Silah öne doğrultulmuş
+                ctx.fillStyle = '#3a3a3a';
+                ctx.fillRect(screenX, armY + height * 0.10, 1, height * 0.14);
+                // Namlu (oyuncuya doğru)
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(screenX, armY + height * 0.02, 1, height * 0.12);
+                // Namlu ucu parlaması (ateş ediyorsa)
+                if (Math.sin(time * 20) > 0.8 && enemy.isAlert) {
+                    ctx.fillStyle = '#ff6600';
+                    ctx.fillRect(screenX, armY - height * 0.02, 1, height * 0.06);
+                }
+            } else {
+                // Silah aşağıda
+                ctx.fillStyle = '#2a2a2a';
+                ctx.fillRect(screenX, armY + height * 0.20, 1, height * 0.18);
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(screenX, armY + height * 0.36, 1, height * 0.08);
+            }
+        }
+
+        // Charger'ın yumruğu (silah yok, yakın dövüş)
+        if (isCharger && isAiming && x >= 0.85 && x <= 0.92) {
+            ctx.fillStyle = '#4a4a4a'; // Metal eldiven
+            ctx.fillRect(screenX, armY + height * 0.18, 1, height * 0.10);
         }
     }
 
     // ============================================
     // === BACAKLAR (animasyonlu) ===
     // ============================================
-    const legSwing = walkPhase * 0.02;
+    const legSwing = walkPhase * 0.06; // Daha belirgin bacak hareketi
+    const legBend = Math.abs(walkPhase) * 0.04; // Diz bükülmesi
 
     // Sol bacak
     if (x >= 0.28 && x <= 0.46) {
-        const legY = top + height * (0.55 + legSwing);
+        const legOffset = legSwing;
+        const legY = top + height * (0.55 + legOffset);
+        const bendAmount = legSwing > 0 ? legBend : 0;
+
+        // Üst bacak
         ctx.fillStyle = pantsColor;
-        ctx.fillRect(screenX, legY, 1, height * 0.35);
+        ctx.fillRect(screenX, legY, 1, height * (0.18 - bendAmount));
+
+        // Alt bacak (diz bükülmesi ile)
+        ctx.fillStyle = darkenColor(pantsColor, 0.1);
+        ctx.fillRect(screenX, legY + height * (0.16 - bendAmount), 1, height * (0.17 + bendAmount));
+
         // Ayakkabı
         ctx.fillStyle = isCharger ? '#2a2a2a' : '#1a1a1a';
-        ctx.fillRect(screenX, legY + height * 0.33, 1, height * 0.07);
+        ctx.fillRect(screenX, legY + height * 0.31, 1, height * 0.09);
 
         // Charger: Dizlik
         if (isCharger) {
             ctx.fillStyle = '#4a4a4a';
-            ctx.fillRect(screenX, legY + height * 0.12, 1, height * 0.08);
+            ctx.fillRect(screenX, legY + height * 0.10, 1, height * 0.08);
         }
     }
 
     // Sağ bacak
     if (x >= 0.54 && x <= 0.72) {
-        const legY = top + height * (0.55 - legSwing);
+        const legOffset = -legSwing;
+        const legY = top + height * (0.55 + legOffset);
+        const bendAmount = legSwing < 0 ? legBend : 0;
+
+        // Üst bacak
         ctx.fillStyle = pantsColor;
-        ctx.fillRect(screenX, legY, 1, height * 0.35);
+        ctx.fillRect(screenX, legY, 1, height * (0.18 - bendAmount));
+
+        // Alt bacak
+        ctx.fillStyle = darkenColor(pantsColor, 0.1);
+        ctx.fillRect(screenX, legY + height * (0.16 - bendAmount), 1, height * (0.17 + bendAmount));
+
+        // Ayakkabı
         ctx.fillStyle = isCharger ? '#2a2a2a' : '#1a1a1a';
-        ctx.fillRect(screenX, legY + height * 0.33, 1, height * 0.07);
+        ctx.fillRect(screenX, legY + height * 0.31, 1, height * 0.09);
 
         if (isCharger) {
             ctx.fillStyle = '#4a4a4a';
-            ctx.fillRect(screenX, legY + height * 0.12, 1, height * 0.08);
+            ctx.fillRect(screenX, legY + height * 0.10, 1, height * 0.08);
         }
     }
 

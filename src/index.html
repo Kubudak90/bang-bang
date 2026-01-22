@@ -73,30 +73,37 @@
             image-rendering: crisp-edges;
             cursor: crosshair;
             touch-action: none;
-            /* Aspect ratio 640:400 = 8:5 = 1.6 */
-            aspect-ratio: 8 / 5;
         }
 
-        /* Mobile Portrait: Fit width, maintain aspect ratio */
+        /* Mobile Portrait: Rotate to landscape */
         @media (max-width: 768px) and (orientation: portrait) {
-            #game-canvas {
-                width: 100vw !important;
-                height: auto !important;
-                max-height: 60vh;
+            #game-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vh;
+                height: 100vw;
+                transform: rotate(90deg);
+                transform-origin: top left;
+                margin-left: 100vw;
             }
 
-            #game-container {
-                flex-direction: column;
-                padding-top: env(safe-area-inset-top);
+            #game-canvas {
+                width: 100% !important;
+                height: 100% !important;
             }
         }
 
         /* Mobile Landscape: Fill screen */
         @media (max-width: 768px) and (orientation: landscape) {
+            #game-container {
+                width: 100vw;
+                height: 100vh;
+            }
+
             #game-canvas {
-                width: auto !important;
-                height: 100vh !important;
-                max-width: 100vw;
+                width: 100% !important;
+                height: 100% !important;
             }
         }
 

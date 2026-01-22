@@ -8,13 +8,13 @@ import { SCREEN } from '../core/config.js';
 // ============================================
 
 const JOYSTICK_CONFIG = {
-    SIZE: 120,              // Joystick area diameter
-    INNER_SIZE: 50,         // Inner knob diameter
-    DEAD_ZONE: 0.15,        // Ignore small movements
-    OPACITY: 0.5,           // Base opacity
-    ACTIVE_OPACITY: 0.8,    // Opacity when touched
-    MARGIN: 30,             // Distance from screen edge
-    LOOK_SENSITIVITY: 0.008 // Mouse sensitivity equivalent
+    SIZE: 140,              // Joystick area diameter (bigger)
+    INNER_SIZE: 60,         // Inner knob diameter (bigger)
+    DEAD_ZONE: 0.12,        // Ignore small movements (more sensitive)
+    OPACITY: 0.6,           // Base opacity (more visible)
+    ACTIVE_OPACITY: 0.9,    // Opacity when touched
+    MARGIN: 40,             // Distance from screen edge
+    LOOK_SENSITIVITY: 0.012 // Mouse sensitivity equivalent (faster turn)
 };
 
 // ============================================
@@ -321,23 +321,47 @@ export class TouchControls {
         const knobX = stick.active ? stick.knobX : baseX;
         const knobY = stick.active ? stick.knobY : baseY;
 
-        // Outer ring
+        // Color based on side
+        const isLeft = stick.side === 'left';
+        const mainColor = isLeft ? '100, 200, 255' : '255, 100, 100'; // Blue for move, Red for aim/fire
+        const accentColor = isLeft ? '#4af' : '#f44';
+
+        // Outer ring with glow
         ctx.beginPath();
         ctx.arc(baseX, baseY, JOYSTICK_CONFIG.SIZE / 2, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+        ctx.strokeStyle = `rgba(${mainColor}, ${opacity})`;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Inner filled circle (darker)
+        ctx.beginPath();
+        ctx.arc(baseX, baseY, JOYSTICK_CONFIG.SIZE / 2 - 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0, 0, 0, ${opacity * 0.5})`;
+        ctx.fill();
+
+        // Cross hair guides
+        ctx.strokeStyle = `rgba(${mainColor}, ${opacity * 0.3})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(baseX - JOYSTICK_CONFIG.SIZE / 2 + 10, baseY);
+        ctx.lineTo(baseX + JOYSTICK_CONFIG.SIZE / 2 - 10, baseY);
+        ctx.moveTo(baseX, baseY - JOYSTICK_CONFIG.SIZE / 2 + 10);
+        ctx.lineTo(baseX, baseY + JOYSTICK_CONFIG.SIZE / 2 - 10);
+        ctx.stroke();
+
+        // Knob with gradient effect
+        ctx.beginPath();
+        ctx.arc(knobX, knobY, JOYSTICK_CONFIG.INNER_SIZE / 2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${mainColor}, ${opacity})`;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Inner filled circle
+        // Knob inner highlight
         ctx.beginPath();
-        ctx.arc(baseX, baseY, JOYSTICK_CONFIG.SIZE / 2 - 5, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.2})`;
-        ctx.fill();
-
-        // Knob
-        ctx.beginPath();
-        ctx.arc(knobX, knobY, JOYSTICK_CONFIG.INNER_SIZE / 2, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.8})`;
+        ctx.arc(knobX - 5, knobY - 5, JOYSTICK_CONFIG.INNER_SIZE / 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.4})`;
         ctx.fill();
 
         // Direction indicator for active stick
@@ -345,10 +369,16 @@ export class TouchControls {
             ctx.beginPath();
             ctx.moveTo(baseX, baseY);
             ctx.lineTo(knobX, knobY);
-            ctx.strokeStyle = `rgba(0, 255, 0, ${opacity})`;
+            ctx.strokeStyle = accentColor;
             ctx.lineWidth = 3;
             ctx.stroke();
         }
+
+        // Label
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.7})`;
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(isLeft ? 'MOVE' : 'AIM', baseX, baseY - JOYSTICK_CONFIG.SIZE / 2 - 8);
     }
 
     _renderWeaponButtons(ctx) {

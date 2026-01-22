@@ -379,15 +379,16 @@ function setupNetworkCallbacks() {
             }
         });
 
-        // Start multiplayer loop
-        gameMode = 'multiplayer';
+        // Start in lobby mode (wait for match to start)
+        gameMode = 'lobby';
         game.mode = 'multiplayer';
+        game.matchState = 'waiting';
         game.isRunning = true;
         game.lastTime = performance.now();
         clearInputHistory();
 
-        console.log('🎮 Multiplayer mode started');
-        requestAnimationFrame(multiplayerLoop);
+        console.log('🎮 Joined lobby, waiting for match...');
+        requestAnimationFrame(lobbyLoop);
     });
 
     gameClient.on('stateUpdate', (data) => {
@@ -482,6 +483,12 @@ function setupNetworkCallbacks() {
         game.matchDuration = data.duration;
         game.matchTime = data.duration;
         console.log('Match started!');
+
+        // Transition from lobby to game
+        if (gameMode === 'lobby') {
+            gameMode = 'multiplayer';
+            requestAnimationFrame(multiplayerLoop);
+        }
     });
 
     gameClient.on('matchEnd', (data) => {
@@ -499,6 +506,79 @@ function setupNetworkCallbacks() {
     gameClient.on('error', (error) => {
         console.error('Network error:', error);
     });
+}
+
+// ============================================
+// LOBBY MODE
+// ============================================
+
+function lobbyLoop(currentTime) {
+    if (gameMode !== 'lobby' || !game.isRunning) return;
+
+    updateDeltaTime(currentTime);
+    updateFps(currentTime);
+
+    renderLobbyScreen(game.ctx);
+
+    requestAnimationFrame(lobbyLoop);
+}
+
+function renderLobbyScreen(ctx) {
+    // Background
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, SCREEN.WIDTH, SCREEN.HEIGHT);
+
+    // Title
+    ctx.fillStyle = '#e94560';
+    ctx.font = 'bold 36px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('WAITING ROOM', SCREEN.WIDTH / 2, 80);
+
+    // Room info
+    ctx.fillStyle = '#fff';
+    ctx.font = '16px monospace';
+    ctx.fillText(`Room: ${game.roomId || 'Connecting...'}`, SCREEN.WIDTH / 2, 120);
+
+    // Player count
+    const playerCount = game.players ? game.players.size : 0;
+    const minPlayers = 1; // Min to start (server decides)
+
+    ctx.font = 'bold 48px monospace';
+    ctx.fillStyle = playerCount >= minPlayers ? '#4f4' : '#ff4';
+    ctx.fillText(`${playerCount}`, SCREEN.WIDTH / 2, 200);
+
+    ctx.font = '14px monospace';
+    ctx.fillStyle = '#888';
+    ctx.fillText('players in room', SCREEN.WIDTH / 2, 225);
+
+    // Player list
+    ctx.font = '14px monospace';
+    ctx.textAlign = 'left';
+    const players = getAllPlayers();
+    const listX = SCREEN.WIDTH / 2 - 100;
+    let listY = 260;
+
+    players.forEach((player, index) => {
+        const isLocal = player.id === game.clientId;
+        ctx.fillStyle = isLocal ? '#4f4' : '#fff';
+        const prefix = isLocal ? '► ' : '  ';
+        ctx.fillText(`${prefix}${player.username || 'Player'}`, listX, listY);
+        listY += 20;
+    });
+
+    // Waiting animation
+    const dots = '.'.repeat(Math.floor(Date.now() / 500) % 4);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#888';
+    ctx.font = '16px monospace';
+    ctx.fillText(`Waiting for match to start${dots}`, SCREEN.WIDTH / 2, 340);
+
+    // Controls hint
+    ctx.fillStyle = '#555';
+    ctx.font = '12px monospace';
+    ctx.fillText('ESC to leave', SCREEN.WIDTH / 2, SCREEN.HEIGHT - 30);
+
+    ctx.textAlign = 'left';
 }
 
 function multiplayerLoop(currentTime) {

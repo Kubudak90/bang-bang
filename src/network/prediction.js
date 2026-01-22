@@ -58,21 +58,16 @@ export function recordInput(input, playerState) {
 
 /**
  * Apply input to player state (prediction)
- * This mirrors the server's movement logic
+ * This mirrors the server's movement logic exactly
+ * NOTE: Server uses speed=5.0, no wall collision (only boundary)
  */
 export function applyInput(player, input, deltaTime, map) {
-    const speed = PLAYER.MOVE_SPEED * deltaTime;
-    const rotSpeed = PLAYER.ROTATION_SPEED * deltaTime;
+    // Match server speed exactly
+    const speed = 5.0 * deltaTime;
 
-    // Apply rotation
-    if (input.lookDelta !== undefined) {
-        player.angle += input.lookDelta;
-    }
-    if (input.turnLeft) {
-        player.angle -= rotSpeed;
-    }
-    if (input.turnRight) {
-        player.angle += rotSpeed;
+    // Apply rotation from angle directly (server behavior)
+    if (input.angle !== undefined) {
+        player.angle = input.angle;
     }
 
     // Normalize angle
@@ -101,22 +96,19 @@ export function applyInput(player, input, deltaTime, map) {
         moveY += cos * speed;
     }
 
-    // Apply movement with collision (sliding)
+    // Apply movement - match server (boundary only, no wall collision)
     if (moveX !== 0 || moveY !== 0) {
         const newX = player.x + moveX;
         const newY = player.y + moveY;
 
-        // Check collision (if map provided)
-        if (map) {
-            if (!map.isWall(Math.floor(newX), Math.floor(player.y))) {
-                player.x = newX;
-            }
-            if (!map.isWall(Math.floor(player.x), Math.floor(newY))) {
-                player.y = newY;
-            }
-        } else {
-            // No collision check (server will validate)
+        // Server uses mapSize for boundary, we use map.width
+        const mapSize = map ? map.width : 32;
+
+        // Boundary check only (same as server)
+        if (newX > 1 && newX < mapSize - 1) {
             player.x = newX;
+        }
+        if (newY > 1 && newY < mapSize - 1) {
             player.y = newY;
         }
     }

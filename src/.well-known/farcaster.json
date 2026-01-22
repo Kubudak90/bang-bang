@@ -1,0 +1,18 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjEyMzQ1LCJ0eXBlIjoiY3VzdG9keSIsImtleSI6IjB4In0",
+    "payload": "eyJkb21haW4iOiJiYW5nLWJhbmctYWxwaGEudmVyY2VsLmFwcCJ9",
+    "signature": "placeholder"
+  },
+  "frame": {
+    "version": "1",
+    "name": "Bang Bang",
+    "iconUrl": "https://placehold.co/200x200/1a1a2e/e94560?text=BB",
+    "homeUrl": "https://bang-bang-alpha.vercel.app",
+    "imageUrl": "https://placehold.co/1200x630/1a1a2e/e94560?text=BANG+BANG",
+    "buttonTitle": "Play Now",
+    "splashImageUrl": "https://placehold.co/200x200/1a1a2e/e94560?text=BB",
+    "splashBackgroundColor": "#1a1a2e",
+    "webhookUrl": ""
+  }
+}

@@ -39,7 +39,8 @@ export const NETWORK = {
     INPUT_BUFFER_SIZE: 64,      // Input history for reconciliation
     STATE_BUFFER_SIZE: 20,      // State history for interpolation
     INTERPOLATION_DELAY: 100,   // ms behind server time for smooth rendering
-    RECONCILE_THRESHOLD: 0.5,   // Position error threshold for correction
+    RECONCILE_THRESHOLD: 1.5,   // Position error threshold for correction (increased for mobile)
+    SMOOTH_FACTOR: 0.2,         // How fast to lerp towards server position
     MAX_PLAYERS: 8,
     MATCH_DURATION: 300,        // 5 minutes
     RESPAWN_TIME: 3             // seconds
@@ -84,7 +85,7 @@ export function decodeMessage(data) {
 
 /**
  * Encode input state for transmission
- * Compact format: 1 byte flags + 2 bytes angle
+ * Compact format: 1 byte flags + angle + lookDelta
  */
 export function encodeInput(input) {
     // Pack movement flags into single byte
@@ -99,6 +100,7 @@ export function encodeInput(input) {
         seq: input.seq,         // Sequence number for reconciliation
         f: flags,               // Movement flags
         a: Math.round(input.angle * 1000) / 1000,  // Angle (3 decimal places)
+        ld: input.lookDelta || 0,  // Look delta for rotation
         w: input.weapon         // Current weapon
     };
 }
@@ -115,6 +117,7 @@ export function decodeInput(data) {
         right: !!(data.f & 0x08),
         shoot: !!(data.f & 0x10),
         angle: data.a,
+        lookDelta: data.ld || 0,
         weapon: data.w
     };
 }

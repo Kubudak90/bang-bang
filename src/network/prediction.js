@@ -138,21 +138,23 @@ export function reconcile(localPlayer, serverState, map) {
     const errorY = Math.abs(localPlayer.y - serverState.y);
     const error = Math.sqrt(errorX * errorX + errorY * errorY);
 
+    // Always smooth towards server position (less jarring)
+    const smoothFactor = NETWORK.SMOOTH_FACTOR || 0.2;
+
     // If error is small enough, just smooth towards server position
     if (error < NETWORK.RECONCILE_THRESHOLD) {
-        // Smooth correction (lerp towards server)
-        const smoothFactor = 0.1;
         localPlayer.x += (serverState.x - localPlayer.x) * smoothFactor;
         localPlayer.y += (serverState.y - localPlayer.y) * smoothFactor;
+        // Also smooth angle
+        const angleDiff = serverState.angle - localPlayer.angle;
+        localPlayer.angle += angleDiff * smoothFactor * 0.5;
         return false;
     }
 
-    // Large error - snap and re-simulate
-    console.log(`Reconciling: error=${error.toFixed(3)}, lastProcessed=${lastProcessedSeq}`);
-
-    // Snap to server position
-    localPlayer.x = serverState.x;
-    localPlayer.y = serverState.y;
+    // Large error - use stronger correction but still smooth
+    const strongSmooth = Math.min(0.5, smoothFactor * 2);
+    localPlayer.x += (serverState.x - localPlayer.x) * strongSmooth;
+    localPlayer.y += (serverState.y - localPlayer.y) * strongSmooth;
     localPlayer.angle = serverState.angle;
 
     // Remove processed inputs
@@ -160,10 +162,17 @@ export function reconcile(localPlayer, serverState, map) {
         inputHistory.shift();
     }
 
-    // Re-apply unprocessed inputs
-    const tickTime = NETWORK.TICK_INTERVAL / 1000; // Approximate delta time
-    for (const record of inputHistory) {
-        applyInput(localPlayer, record.input, tickTime, map);
+    // Only re-simulate if error is very large
+    if (error > NETWORK.RECONCILE_THRESHOLD * 2) {
+        console.log(`Hard reconcile: error=${error.toFixed(3)}`);
+        localPlayer.x = serverState.x;
+        localPlayer.y = serverState.y;
+
+        // Re-apply unprocessed inputs
+        const tickTime = NETWORK.TICK_INTERVAL / 1000;
+        for (const record of inputHistory) {
+            applyInput(localPlayer, record.input, tickTime, map);
+        }
     }
 
     return true;

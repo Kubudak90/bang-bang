@@ -127,6 +127,10 @@ export function initMultiplayerState() {
     game.clientId = null;
     game.roomId = null;
     game.localPlayer = null;
+
+    // Clear singleplayer entities
+    game.enemies = [];
+    game.loots = [];
 }
 
 /**

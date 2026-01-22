@@ -75,18 +75,36 @@ export function renderMinimap(ctx, map, player, rays) {
     );
     ctx.stroke();
 
-    // Düşmanlar (kırmızı noktalar)
-    const enemies = game.enemies || [];
-    for (const enemy of enemies) {
-        if (enemy.isDead) continue;
+    // Düşmanlar (kırmızı noktalar) - sadece singleplayer'da
+    if (game.mode !== 'multiplayer') {
+        const enemies = game.enemies || [];
+        for (const enemy of enemies) {
+            if (enemy.isDead) continue;
 
-        const ex = padding + enemy.x * scale;
-        const ey = padding + enemy.y * scale;
+            const ex = padding + enemy.x * scale;
+            const ey = padding + enemy.y * scale;
 
-        ctx.fillStyle = '#f00';
-        ctx.beginPath();
-        ctx.arc(ex, ey, 2, 0, Math.PI * 2);
-        ctx.fill();
+            ctx.fillStyle = '#f00';
+            ctx.beginPath();
+            ctx.arc(ex, ey, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // Diğer oyuncular (multiplayer'da)
+    if (game.mode === 'multiplayer' && game.players) {
+        for (const [playerId, otherPlayer] of game.players) {
+            if (playerId === game.clientId) continue; // Kendimizi çizme
+            if (otherPlayer.state === 'dead') continue;
+
+            const px = padding + otherPlayer.x * scale;
+            const py = padding + otherPlayer.y * scale;
+
+            ctx.fillStyle = otherPlayer.color || '#f00';
+            ctx.beginPath();
+            ctx.arc(px, py, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 
     // Loot'lar (sarı noktalar)

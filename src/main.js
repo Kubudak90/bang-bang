@@ -145,8 +145,11 @@ function menuLoop(currentTime) {
     // Singleplayer button
     drawButton(ctx, SCREEN.WIDTH / 2, menuY, 'SINGLEPLAYER [1]', '#0f3460');
 
-    // Multiplayer button
-    drawButton(ctx, SCREEN.WIDTH / 2, menuY + 60, 'MULTIPLAYER [2]', '#e94560');
+    // Multiplayer button (disabled - server not deployed)
+    drawButton(ctx, SCREEN.WIDTH / 2, menuY + 60, 'MULTIPLAYER [2]', '#444444');
+    ctx.fillStyle = '#888';
+    ctx.font = '10px monospace';
+    ctx.fillText('(coming soon)', SCREEN.WIDTH / 2, menuY + 85);
 
     // Controls hint
     ctx.fillStyle = '#666';
@@ -170,7 +173,8 @@ function menuLoop(currentTime) {
     document.onkeydown = (e) => {
         if (gameMode !== 'menu') return;
         if (e.key === '1') startSingleplayer();
-        if (e.key === '2') startMultiplayer();
+        // Multiplayer disabled until server is deployed
+        // if (e.key === '2') startMultiplayer();
     };
 
     // Check for touch/click
@@ -181,9 +185,11 @@ function menuLoop(currentTime) {
 
         if (y > menuY - 25 && y < menuY + 25) {
             startSingleplayer();
-        } else if (y > menuY + 35 && y < menuY + 85) {
-            startMultiplayer();
         }
+        // Multiplayer disabled until server is deployed
+        // else if (y > menuY + 35 && y < menuY + 85) {
+        //     startMultiplayer();
+        // }
     };
 
     requestAnimationFrame(menuLoop);

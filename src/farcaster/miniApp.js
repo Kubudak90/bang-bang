@@ -18,8 +18,8 @@ export async function initMiniApp() {
     }
 
     try {
-        // Dynamic import of Farcaster SDK
-        const farcasterModule = await import('https://esm.sh/@farcaster/frame-sdk@0.1.11');
+        // Dynamic import of Farcaster SDK (Mini Apps SDK - latest)
+        const farcasterModule = await import('https://esm.sh/@farcaster/frame-sdk@latest');
         sdk = farcasterModule.sdk;
 
         // Get context (user info, etc.)

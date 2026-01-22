@@ -233,6 +233,7 @@ function renderEnemySprite(ctx, enemy, dist, angle, rays, viewPlayer, pitch = 0)
 /**
  * Düşman sprite sütunu - Gelişmiş insan karakteri
  * Her düşman tipi farklı görünüme sahip
+ * v2: Daha detaylı gölgeleme, outline ve ifadeler
  */
 function renderEnemyColumn(ctx, screenX, centerY, height, spriteX, enemy) {
     const halfHeight = height / 2;
@@ -259,19 +260,27 @@ function renderEnemyColumn(ctx, screenX, centerY, height, spriteX, enemy) {
     const isShooter = enemy.type === 'shooter';
     const isCharger = enemy.type === 'charger';
 
-    // Ten renkleri - tiplerine göre farklı
-    const skinColor = isCharger ? '#c9a87c' : (isShooter ? '#d4a574' : '#e8b89d');
-    const skinColorDark = darkenColor(skinColor, 0.15);
+    // Ten renkleri - tiplerine göre farklı (daha canlı)
+    const skinColor = isCharger ? '#d4a574' : (isShooter ? '#e0b090' : '#f5c9a8');
+    const skinColorDark = darkenColor(skinColor, 0.2);
+    const skinColorLight = lightenColor(skinColor, 0.15);
 
     // Saç/kafa renkleri
-    const hairColor = isCharger ? '#1a1a1a' : (isShooter ? '#4a3728' : '#2a1a0a');
+    const hairColor = isCharger ? '#1a1a1a' : (isShooter ? '#3a2518' : '#2a1a0a');
 
-    // Pantolon rengi
-    const pantsColor = isCharger ? '#3a2a1a' : (isShooter ? '#1a3a1a' : '#2a3a5a');
+    // Pantolon rengi (daha belirgin)
+    const pantsColor = isCharger ? '#4a3020' : (isShooter ? '#2a4a2a' : '#3a4a6a');
+    const pantsColorDark = darkenColor(pantsColor, 0.2);
 
     // Silah doğrultma animasyonu
     const isAiming = enemy.isAlert && (isShooter || isGrunt);
     const aimPhase = isAiming ? 0.3 + Math.sin(time * 3) * 0.05 : 0;
+
+    // Mesafeye göre detay seviyesi (uzaktaysa basit çiz)
+    const detailLevel = height > 60 ? 2 : (height > 30 ? 1 : 0);
+
+    // Outline rengi (koyu gölge)
+    const outlineColor = '#1a1210';
 
     // ============================================
     // === CHARGER: KASK ===
@@ -303,77 +312,153 @@ function renderEnemyColumn(ctx, screenX, centerY, height, spriteX, enemy) {
     // ============================================
     // === KAFA ===
     // ============================================
-    const headLeft = 0.32;
-    const headRight = 0.68;
-    const headTop = isCharger ? 0.04 : 0.0; // Charger kask altında
-    const headBottom = 0.16;
+    const headLeft = 0.30;
+    const headRight = 0.70;
+    const headTop = isCharger ? 0.04 : -0.02; // Charger kask altında
+    const headBottom = 0.18;
 
     if (x >= headLeft && x <= headRight) {
         const headX = (x - headLeft) / (headRight - headLeft);
         const distFromHeadCenter = Math.abs(headX - 0.5) * 2;
 
-        if (distFromHeadCenter < 0.95) {
+        if (distFromHeadCenter < 0.98) {
             const headHeight = (headBottom - headTop) * height;
             const headY = top + headTop * height;
 
-            // Yüz
+            // Yüz tabanı - oval şekil için kenarları daralt
+            const ovalFactor = 1 - Math.pow(distFromHeadCenter, 2) * 0.3;
+            const faceTop = headY + headHeight * (0.1 * distFromHeadCenter);
+            const faceHeight = headHeight * ovalFactor;
+
+            // Yüz ana rengi
             ctx.fillStyle = skinColor;
-            ctx.fillRect(screenX, headY, 1, headHeight);
+            ctx.fillRect(screenX, faceTop, 1, faceHeight);
+
+            // Yüz highlight (ortada daha açık)
+            if (distFromHeadCenter < 0.4 && detailLevel > 0) {
+                ctx.fillStyle = skinColorLight;
+                ctx.fillRect(screenX, faceTop + faceHeight * 0.2, 1, faceHeight * 0.4);
+            }
 
             // Saç (Charger hariç - kask var)
             if (!isCharger) {
                 ctx.fillStyle = hairColor;
-                ctx.fillRect(screenX, headY, 1, headHeight * 0.28);
-            }
-
-            // Kaşlar (kızgın ifade)
-            if (distFromHeadCenter < 0.65 && distFromHeadCenter > 0.2) {
-                ctx.fillStyle = hairColor;
-                const browOffset = enemy.isAlert ? headHeight * 0.02 : 0;
-                ctx.fillRect(screenX, headY + headHeight * 0.32 + browOffset, 1, headHeight * 0.06);
-            }
-
-            // Gözler
-            if (distFromHeadCenter < 0.55 && distFromHeadCenter > 0.15) {
-                // Göz akı
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(screenX, headY + headHeight * 0.42, 1, headHeight * 0.14);
-
-                // Göz bebeği - alert ise oyuncuya baksın
-                const pupilOffset = enemy.isAlert ? (x < 0.5 ? 0.02 : -0.02) : 0;
-                ctx.fillStyle = isCharger ? '#ff0000' : '#000';
-                ctx.fillRect(screenX, headY + headHeight * (0.46 + pupilOffset), 1, headHeight * 0.08);
-
-                // Göz parlaması
-                ctx.fillStyle = 'rgba(255,255,255,0.5)';
-                ctx.fillRect(screenX, headY + headHeight * 0.43, 1, headHeight * 0.03);
-            }
-
-            // Burun
-            if (distFromHeadCenter < 0.15) {
-                ctx.fillStyle = skinColorDark;
-                ctx.fillRect(screenX, headY + headHeight * 0.55, 1, headHeight * 0.12);
-            }
-
-            // Ağız - tiplerine göre farklı ifade
-            if (distFromHeadCenter < 0.3) {
-                if (isCharger && enemy.isAlert) {
-                    // Charger bağırıyor
-                    ctx.fillStyle = '#2a0a0a';
-                    ctx.fillRect(screenX, headY + headHeight * 0.72, 1, headHeight * 0.15);
-                    // Dişler
-                    ctx.fillStyle = '#fff';
-                    ctx.fillRect(screenX, headY + headHeight * 0.73, 1, headHeight * 0.04);
-                } else {
-                    ctx.fillStyle = '#6a3030';
-                    ctx.fillRect(screenX, headY + headHeight * 0.75, 1, headHeight * 0.08);
+                const hairHeight = headHeight * 0.32;
+                ctx.fillRect(screenX, headY, 1, hairHeight);
+                // Saç highlight
+                if (distFromHeadCenter < 0.3 && detailLevel > 1) {
+                    ctx.fillStyle = lightenColor(hairColor, 0.15);
+                    ctx.fillRect(screenX, headY + hairHeight * 0.1, 1, hairHeight * 0.3);
                 }
             }
 
-            // Yüz gölgesi (yanlarda)
-            if (distFromHeadCenter > 0.6) {
+            // Kaşlar (kızgın ifade - daha belirgin)
+            if (distFromHeadCenter < 0.6 && distFromHeadCenter > 0.15) {
+                ctx.fillStyle = hairColor;
+                const browOffset = enemy.isAlert ? -headHeight * 0.03 : headHeight * 0.01;
+                const browThickness = enemy.isAlert ? headHeight * 0.08 : headHeight * 0.05;
+                ctx.fillRect(screenX, headY + headHeight * 0.34 + browOffset, 1, browThickness);
+            }
+
+            // Gözler - daha büyük ve belirgin
+            if (distFromHeadCenter < 0.5 && distFromHeadCenter > 0.12) {
+                const eyeY = headY + headHeight * 0.42;
+                const eyeHeight = headHeight * 0.18;
+
+                // Göz çukuru (koyu)
+                if (detailLevel > 0) {
+                    ctx.fillStyle = darkenColor(skinColor, 0.1);
+                    ctx.fillRect(screenX, eyeY - eyeHeight * 0.1, 1, eyeHeight * 1.2);
+                }
+
+                // Göz akı
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(screenX, eyeY, 1, eyeHeight);
+
+                // Göz bebeği - alert ise oyuncuya baksın
+                const pupilOffset = enemy.isAlert ? (headX < 0.5 ? 0.015 : -0.015) : 0;
+                const pupilColor = isCharger ? '#cc0000' : '#1a1a1a';
+                ctx.fillStyle = pupilColor;
+                ctx.fillRect(screenX, eyeY + eyeHeight * (0.25 + pupilOffset), 1, eyeHeight * 0.5);
+
+                // İris (charger için kırmızı hale)
+                if (detailLevel > 1 && !isCharger) {
+                    ctx.fillStyle = '#4a3020';
+                    ctx.fillRect(screenX, eyeY + eyeHeight * 0.2, 1, eyeHeight * 0.15);
+                }
+
+                // Göz parlaması - daha belirgin
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                ctx.fillRect(screenX, eyeY + eyeHeight * 0.1, 1, eyeHeight * 0.15);
+
+                // Alt göz kapağı gölgesi
+                if (detailLevel > 0) {
+                    ctx.fillStyle = skinColorDark;
+                    ctx.fillRect(screenX, eyeY + eyeHeight * 0.9, 1, eyeHeight * 0.2);
+                }
+            }
+
+            // Burun - daha belirgin
+            if (distFromHeadCenter < 0.12) {
                 ctx.fillStyle = skinColorDark;
-                ctx.fillRect(screenX, headY + headHeight * 0.3, 1, headHeight * 0.5);
+                ctx.fillRect(screenX, headY + headHeight * 0.52, 1, headHeight * 0.16);
+                // Burun ucu
+                if (detailLevel > 0) {
+                    ctx.fillStyle = darkenColor(skinColor, 0.08);
+                    ctx.fillRect(screenX, headY + headHeight * 0.62, 1, headHeight * 0.06);
+                }
+            }
+
+            // Burun kanatları
+            if (distFromHeadCenter > 0.08 && distFromHeadCenter < 0.18) {
+                ctx.fillStyle = skinColorDark;
+                ctx.fillRect(screenX, headY + headHeight * 0.62, 1, headHeight * 0.06);
+            }
+
+            // Ağız - tiplerine göre farklı ifade
+            if (distFromHeadCenter < 0.25) {
+                const mouthY = headY + headHeight * 0.72;
+
+                if (isCharger && enemy.isAlert) {
+                    // Charger bağırıyor - açık ağız
+                    ctx.fillStyle = '#2a0808';
+                    ctx.fillRect(screenX, mouthY, 1, headHeight * 0.18);
+                    // Üst dişler
+                    ctx.fillStyle = '#f0f0f0';
+                    ctx.fillRect(screenX, mouthY, 1, headHeight * 0.05);
+                    // Alt dişler
+                    ctx.fillRect(screenX, mouthY + headHeight * 0.13, 1, headHeight * 0.04);
+                } else if (enemy.isAlert) {
+                    // Kızgın ifade - sıkılmış ağız
+                    ctx.fillStyle = '#5a2828';
+                    ctx.fillRect(screenX, mouthY, 1, headHeight * 0.06);
+                    // Dudak çizgisi
+                    ctx.fillStyle = '#3a1818';
+                    ctx.fillRect(screenX, mouthY + headHeight * 0.02, 1, headHeight * 0.02);
+                } else {
+                    // Normal ifade
+                    ctx.fillStyle = '#8a4040';
+                    ctx.fillRect(screenX, mouthY, 1, headHeight * 0.08);
+                }
+            }
+
+            // Çene gölgesi
+            if (distFromHeadCenter < 0.4) {
+                ctx.fillStyle = skinColorDark;
+                ctx.fillRect(screenX, headY + headHeight * 0.88, 1, headHeight * 0.1);
+            }
+
+            // Yüz kenar gölgesi (yanlarda) - gradient benzeri
+            if (distFromHeadCenter > 0.5) {
+                const shadowIntensity = (distFromHeadCenter - 0.5) * 0.4;
+                ctx.fillStyle = darkenColor(skinColor, shadowIntensity);
+                ctx.fillRect(screenX, faceTop, 1, faceHeight);
+            }
+
+            // Outline (en dışta)
+            if (distFromHeadCenter > 0.85 && detailLevel > 0) {
+                ctx.fillStyle = outlineColor;
+                ctx.fillRect(screenX, faceTop, 1, faceHeight);
             }
         }
     }
@@ -389,59 +474,124 @@ function renderEnemyColumn(ctx, screenX, centerY, height, spriteX, enemy) {
     // ============================================
     // === GÖVDE ===
     // ============================================
-    const torsoTop = 0.21;
-    const torsoBottom = 0.55;
+    const torsoTop = 0.20;
+    const torsoBottom = 0.54;
 
-    if (x >= 0.22 && x <= 0.78) {
-        const torsoX = (x - 0.22) / 0.56;
+    if (x >= 0.20 && x <= 0.80) {
+        const torsoX = (x - 0.20) / 0.60;
         const distFromTorsoCenter = Math.abs(torsoX - 0.5) * 2;
 
-        if (distFromTorsoCenter < 0.95) {
-            // Ana gövde
+        if (distFromTorsoCenter < 0.98) {
+            const torsoHeight = (torsoBottom - torsoTop) * height;
+            const torsoY = top + torsoTop * height;
+
+            // Ana gövde - vücut şekli
             ctx.fillStyle = bodyColor;
-            ctx.fillRect(screenX, top + torsoTop * height, 1, (torsoBottom - torsoTop) * height);
+            ctx.fillRect(screenX, torsoY, 1, torsoHeight);
+
+            // Gövde highlight (ortada)
+            if (distFromTorsoCenter < 0.3 && detailLevel > 0) {
+                ctx.fillStyle = lightenColor(bodyColor, 0.1);
+                ctx.fillRect(screenX, torsoY + torsoHeight * 0.1, 1, torsoHeight * 0.5);
+            }
 
             // Charger: Zırh plakası
             if (isCharger) {
-                if (distFromTorsoCenter < 0.6) {
+                if (distFromTorsoCenter < 0.65) {
+                    // Ana zırh
                     ctx.fillStyle = '#4a4a4a';
-                    ctx.fillRect(screenX, top + height * 0.25, 1, height * 0.25);
-                    // Zırh parlaması
-                    if (distFromTorsoCenter < 0.2) {
-                        ctx.fillStyle = '#6a6a6a';
-                        ctx.fillRect(screenX, top + height * 0.26, 1, height * 0.08);
+                    ctx.fillRect(screenX, top + height * 0.24, 1, height * 0.26);
+
+                    // Zırh detayları
+                    if (detailLevel > 0) {
+                        // Zırh çizgileri
+                        if (distFromTorsoCenter > 0.3 && distFromTorsoCenter < 0.4) {
+                            ctx.fillStyle = '#3a3a3a';
+                            ctx.fillRect(screenX, top + height * 0.26, 1, height * 0.22);
+                        }
+                        // Orta plaka parlaması
+                        if (distFromTorsoCenter < 0.2) {
+                            ctx.fillStyle = '#6a6a6a';
+                            ctx.fillRect(screenX, top + height * 0.28, 1, height * 0.12);
+                        }
+                    }
+
+                    // Kırmızı gösterge ışığı (alert olunca yanar)
+                    if (enemy.isAlert && distFromTorsoCenter < 0.1) {
+                        const blink = Math.sin(time * 8) > 0;
+                        ctx.fillStyle = blink ? '#ff3333' : '#660000';
+                        ctx.fillRect(screenX, top + height * 0.42, 1, height * 0.03);
                     }
                 }
             }
 
-            // Shooter: Yelek
+            // Shooter: Taktik yelek
             if (isShooter) {
-                if (distFromTorsoCenter < 0.7) {
+                if (distFromTorsoCenter < 0.75) {
+                    // Ana yelek
                     ctx.fillStyle = '#2a4a2a';
-                    ctx.fillRect(screenX, top + height * 0.22, 1, height * 0.30);
-                    // Yelek cebi
-                    if (x > 0.35 && x < 0.45) {
+                    ctx.fillRect(screenX, top + height * 0.21, 1, height * 0.32);
+
+                    // Yelek cepleri
+                    if (torsoX > 0.2 && torsoX < 0.35) {
                         ctx.fillStyle = '#1a3a1a';
-                        ctx.fillRect(screenX, top + height * 0.32, 1, height * 0.08);
+                        ctx.fillRect(screenX, top + height * 0.28, 1, height * 0.12);
+                        // Cep kapağı
+                        ctx.fillStyle = '#0a2a0a';
+                        ctx.fillRect(screenX, top + height * 0.28, 1, height * 0.02);
+                    }
+                    if (torsoX > 0.65 && torsoX < 0.80) {
+                        ctx.fillStyle = '#1a3a1a';
+                        ctx.fillRect(screenX, top + height * 0.28, 1, height * 0.12);
+                        ctx.fillStyle = '#0a2a0a';
+                        ctx.fillRect(screenX, top + height * 0.28, 1, height * 0.02);
+                    }
+
+                    // Yelek fermuarı/ortası
+                    if (distFromTorsoCenter < 0.08) {
+                        ctx.fillStyle = '#3a5a3a';
+                        ctx.fillRect(screenX, top + height * 0.22, 1, height * 0.30);
                     }
                 }
             }
 
-            // Grunt: Kemer
-            if (isGrunt && x > 0.35 && x < 0.65) {
-                ctx.fillStyle = '#4a3a2a';
-                ctx.fillRect(screenX, top + height * 0.50, 1, height * 0.04);
-                // Kemer tokası
-                if (x > 0.47 && x < 0.53) {
-                    ctx.fillStyle = '#8a7a5a';
-                    ctx.fillRect(screenX, top + height * 0.505, 1, height * 0.03);
+            // Grunt: T-shirt ve kemer
+            if (isGrunt) {
+                // Yaka
+                if (distFromTorsoCenter < 0.3) {
+                    ctx.fillStyle = darkenColor(bodyColor, 0.15);
+                    ctx.fillRect(screenX, top + height * 0.20, 1, height * 0.04);
+                }
+
+                // Kemer
+                if (torsoX > 0.25 && torsoX < 0.75) {
+                    ctx.fillStyle = '#5a4a3a';
+                    ctx.fillRect(screenX, top + height * 0.49, 1, height * 0.045);
+
+                    // Kemer tokası
+                    if (distFromTorsoCenter < 0.12) {
+                        ctx.fillStyle = '#a09070';
+                        ctx.fillRect(screenX, top + height * 0.495, 1, height * 0.035);
+                        // Toka parlaması
+                        if (detailLevel > 1) {
+                            ctx.fillStyle = '#c0b090';
+                            ctx.fillRect(screenX, top + height * 0.50, 1, height * 0.01);
+                        }
+                    }
                 }
             }
 
-            // Gölgeleme
-            if (distFromTorsoCenter > 0.6) {
-                ctx.fillStyle = darkenColor(bodyColor, 0.25);
-                ctx.fillRect(screenX, top + torsoTop * height, 1, (torsoBottom - torsoTop) * height);
+            // Kenar gölgeleme - gradient benzeri
+            if (distFromTorsoCenter > 0.5) {
+                const shadowIntensity = (distFromTorsoCenter - 0.5) * 0.5;
+                ctx.fillStyle = darkenColor(bodyColor, shadowIntensity);
+                ctx.fillRect(screenX, torsoY, 1, torsoHeight);
+            }
+
+            // Outline
+            if (distFromTorsoCenter > 0.88 && detailLevel > 0) {
+                ctx.fillStyle = outlineColor;
+                ctx.fillRect(screenX, torsoY, 1, torsoHeight);
             }
         }
     }
@@ -530,55 +680,100 @@ function renderEnemyColumn(ctx, screenX, centerY, height, spriteX, enemy) {
     // ============================================
     // === BACAKLAR (animasyonlu) ===
     // ============================================
-    const legSwing = walkPhase * 0.06; // Daha belirgin bacak hareketi
-    const legBend = Math.abs(walkPhase) * 0.04; // Diz bükülmesi
+    const legSwing = walkPhase * 0.07; // Belirgin bacak hareketi
+    const legBend = Math.abs(walkPhase) * 0.05; // Diz bükülmesi
 
     // Sol bacak
-    if (x >= 0.28 && x <= 0.46) {
+    if (x >= 0.26 && x <= 0.46) {
+        const legX = (x - 0.26) / 0.20;
+        const distFromLegCenter = Math.abs(legX - 0.5) * 2;
         const legOffset = legSwing;
-        const legY = top + height * (0.55 + legOffset);
+        const legY = top + height * (0.54 + legOffset);
         const bendAmount = legSwing > 0 ? legBend : 0;
 
         // Üst bacak
         ctx.fillStyle = pantsColor;
-        ctx.fillRect(screenX, legY, 1, height * (0.18 - bendAmount));
+        ctx.fillRect(screenX, legY, 1, height * (0.19 - bendAmount));
+
+        // Bacak highlight
+        if (distFromLegCenter < 0.4 && detailLevel > 0) {
+            ctx.fillStyle = lightenColor(pantsColor, 0.1);
+            ctx.fillRect(screenX, legY + height * 0.02, 1, height * 0.08);
+        }
 
         // Alt bacak (diz bükülmesi ile)
-        ctx.fillStyle = darkenColor(pantsColor, 0.1);
-        ctx.fillRect(screenX, legY + height * (0.16 - bendAmount), 1, height * (0.17 + bendAmount));
+        ctx.fillStyle = pantsColorDark;
+        ctx.fillRect(screenX, legY + height * (0.17 - bendAmount), 1, height * (0.18 + bendAmount));
 
         // Ayakkabı
-        ctx.fillStyle = isCharger ? '#2a2a2a' : '#1a1a1a';
-        ctx.fillRect(screenX, legY + height * 0.31, 1, height * 0.09);
+        const shoeColor = isCharger ? '#3a3a3a' : '#2a2a2a';
+        ctx.fillStyle = shoeColor;
+        ctx.fillRect(screenX, legY + height * 0.32, 1, height * 0.10);
+        // Ayakkabı tabanı
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(screenX, legY + height * 0.40, 1, height * 0.02);
 
         // Charger: Dizlik
         if (isCharger) {
-            ctx.fillStyle = '#4a4a4a';
-            ctx.fillRect(screenX, legY + height * 0.10, 1, height * 0.08);
+            ctx.fillStyle = '#5a5a5a';
+            ctx.fillRect(screenX, legY + height * 0.12, 1, height * 0.08);
+            // Dizlik parlaması
+            if (distFromLegCenter < 0.3) {
+                ctx.fillStyle = '#7a7a7a';
+                ctx.fillRect(screenX, legY + height * 0.13, 1, height * 0.03);
+            }
+        }
+
+        // Bacak outline
+        if (distFromLegCenter > 0.8 && detailLevel > 0) {
+            ctx.fillStyle = outlineColor;
+            ctx.fillRect(screenX, legY, 1, height * 0.42);
         }
     }
 
     // Sağ bacak
-    if (x >= 0.54 && x <= 0.72) {
+    if (x >= 0.54 && x <= 0.74) {
+        const legX = (x - 0.54) / 0.20;
+        const distFromLegCenter = Math.abs(legX - 0.5) * 2;
         const legOffset = -legSwing;
-        const legY = top + height * (0.55 + legOffset);
+        const legY = top + height * (0.54 + legOffset);
         const bendAmount = legSwing < 0 ? legBend : 0;
 
         // Üst bacak
         ctx.fillStyle = pantsColor;
-        ctx.fillRect(screenX, legY, 1, height * (0.18 - bendAmount));
+        ctx.fillRect(screenX, legY, 1, height * (0.19 - bendAmount));
+
+        // Bacak highlight
+        if (distFromLegCenter < 0.4 && detailLevel > 0) {
+            ctx.fillStyle = lightenColor(pantsColor, 0.1);
+            ctx.fillRect(screenX, legY + height * 0.02, 1, height * 0.08);
+        }
 
         // Alt bacak
-        ctx.fillStyle = darkenColor(pantsColor, 0.1);
-        ctx.fillRect(screenX, legY + height * (0.16 - bendAmount), 1, height * (0.17 + bendAmount));
+        ctx.fillStyle = pantsColorDark;
+        ctx.fillRect(screenX, legY + height * (0.17 - bendAmount), 1, height * (0.18 + bendAmount));
 
         // Ayakkabı
-        ctx.fillStyle = isCharger ? '#2a2a2a' : '#1a1a1a';
-        ctx.fillRect(screenX, legY + height * 0.31, 1, height * 0.09);
+        const shoeColor = isCharger ? '#3a3a3a' : '#2a2a2a';
+        ctx.fillStyle = shoeColor;
+        ctx.fillRect(screenX, legY + height * 0.32, 1, height * 0.10);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(screenX, legY + height * 0.40, 1, height * 0.02);
 
+        // Charger: Dizlik
         if (isCharger) {
-            ctx.fillStyle = '#4a4a4a';
-            ctx.fillRect(screenX, legY + height * 0.10, 1, height * 0.08);
+            ctx.fillStyle = '#5a5a5a';
+            ctx.fillRect(screenX, legY + height * 0.12, 1, height * 0.08);
+            if (distFromLegCenter < 0.3) {
+                ctx.fillStyle = '#7a7a7a';
+                ctx.fillRect(screenX, legY + height * 0.13, 1, height * 0.03);
+            }
+        }
+
+        // Bacak outline
+        if (distFromLegCenter > 0.8 && detailLevel > 0) {
+            ctx.fillStyle = outlineColor;
+            ctx.fillRect(screenX, legY, 1, height * 0.42);
         }
     }
 
@@ -586,20 +781,47 @@ function renderEnemyColumn(ctx, screenX, centerY, height, spriteX, enemy) {
     // === ÖLÜM EFEKTİ ===
     // ============================================
     if (enemy.isDead) {
-        ctx.fillStyle = `rgba(255, 0, 0, ${enemy.deathTimer * 0.6})`;
+        // Kırmızı overlay
+        const deathAlpha = enemy.deathTimer * 0.5;
+        ctx.fillStyle = `rgba(180, 20, 20, ${deathAlpha})`;
         ctx.fillRect(screenX, top, 1, height);
-        // Kan efekti
-        ctx.fillStyle = `rgba(139, 0, 0, ${enemy.deathTimer * 0.4})`;
-        ctx.fillRect(screenX, top + height * 0.3, 1, height * 0.4);
+
+        // Kan efekti - daha dramatik
+        const bloodY = top + height * 0.25;
+        const bloodHeight = height * 0.5;
+        ctx.fillStyle = `rgba(100, 0, 0, ${enemy.deathTimer * 0.6})`;
+        ctx.fillRect(screenX, bloodY, 1, bloodHeight);
+
+        // Parçalanma efekti (ölürken)
+        if (enemy.deathTimer < 0.5 && Math.random() > 0.7) {
+            ctx.fillStyle = `rgba(80, 0, 0, ${enemy.deathTimer})`;
+            const particleY = top + Math.random() * height;
+            ctx.fillRect(screenX, particleY, 1, height * 0.05);
+        }
     }
 
     // ============================================
-    // === ALERT DURUMU - KIRMIZI GÖSTERGE ===
+    // === ALERT DURUMU - ÜNLEM İŞARETİ ===
     // ============================================
-    if (enemy.isAlert && !enemy.isDead && x > 0.45 && x < 0.55) {
-        const pulseAlpha = 0.3 + Math.sin(time * 10) * 0.2;
-        ctx.fillStyle = `rgba(255, 0, 0, ${pulseAlpha})`;
-        ctx.fillRect(screenX, top - height * 0.08, 1, height * 0.05);
+    if (enemy.isAlert && !enemy.isDead && x > 0.42 && x < 0.58) {
+        const alertY = top - height * 0.15;
+        const pulseScale = 1 + Math.sin(time * 12) * 0.15;
+        const pulseAlpha = 0.6 + Math.sin(time * 8) * 0.3;
+
+        // Ünlem işareti arka planı
+        if (x > 0.46 && x < 0.54) {
+            // Kırmızı daire
+            ctx.fillStyle = `rgba(220, 40, 40, ${pulseAlpha})`;
+            ctx.fillRect(screenX, alertY, 1, height * 0.10 * pulseScale);
+
+            // Ünlem çubuğu
+            if (x > 0.48 && x < 0.52) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(screenX, alertY + height * 0.02, 1, height * 0.05);
+                // Ünlem noktası
+                ctx.fillRect(screenX, alertY + height * 0.08, 1, height * 0.015);
+            }
+        }
     }
 }
 

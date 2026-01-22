@@ -357,6 +357,10 @@ function setupNetworkCallbacks() {
         game.roomId = data.roomId;
         game.mapSeed = data.mapSeed;
 
+        // Clear singleplayer entities (multiplayer = players only, no NPCs)
+        game.enemies = [];
+        clearLoots();
+
         // Generate map from seed
         game.map = generateMap(32, 32, data.mapSeed);
 

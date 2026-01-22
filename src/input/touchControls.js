@@ -170,12 +170,22 @@ export class TouchControls {
         e.preventDefault();
 
         const rect = this.canvas.getBoundingClientRect();
-        const scaleX = SCREEN.WIDTH / rect.width;
-        const scaleY = SCREEN.HEIGHT / rect.height;
+        const isPortrait = window.innerHeight > window.innerWidth;
 
         for (const touch of e.changedTouches) {
-            const x = (touch.clientX - rect.left) * scaleX;
-            const y = (touch.clientY - rect.top) * scaleY;
+            let x, y;
+
+            if (isPortrait) {
+                // Portrait mode: screen is rotated 90deg, swap and invert coordinates
+                const rawX = touch.clientX - rect.left;
+                const rawY = touch.clientY - rect.top;
+                x = (rawY / rect.height) * SCREEN.WIDTH;
+                y = ((rect.width - rawX) / rect.width) * SCREEN.HEIGHT;
+            } else {
+                // Landscape mode: normal coordinates
+                x = ((touch.clientX - rect.left) / rect.width) * SCREEN.WIDTH;
+                y = ((touch.clientY - rect.top) / rect.height) * SCREEN.HEIGHT;
+            }
 
             // Check weapon buttons first
             const weaponButton = this._hitTestWeaponButtons(x, y);
@@ -202,12 +212,22 @@ export class TouchControls {
         e.preventDefault();
 
         const rect = this.canvas.getBoundingClientRect();
-        const scaleX = SCREEN.WIDTH / rect.width;
-        const scaleY = SCREEN.HEIGHT / rect.height;
+        const isPortrait = window.innerHeight > window.innerWidth;
 
         for (const touch of e.changedTouches) {
-            const x = (touch.clientX - rect.left) * scaleX;
-            const y = (touch.clientY - rect.top) * scaleY;
+            let x, y;
+
+            if (isPortrait) {
+                // Portrait mode: screen is rotated 90deg, swap and invert coordinates
+                const rawX = touch.clientX - rect.left;
+                const rawY = touch.clientY - rect.top;
+                x = (rawY / rect.height) * SCREEN.WIDTH;
+                y = ((rect.width - rawX) / rect.width) * SCREEN.HEIGHT;
+            } else {
+                // Landscape mode: normal coordinates
+                x = ((touch.clientX - rect.left) / rect.width) * SCREEN.WIDTH;
+                y = ((touch.clientY - rect.top) / rect.height) * SCREEN.HEIGHT;
+            }
 
             if (touch.identifier === this.leftStick.touchId) {
                 this.leftStick.move(x, y);

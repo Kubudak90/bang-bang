@@ -1,6 +1,8 @@
 // Enemy - düşman sistemi
 
 import { game } from '../core/game.js';
+import { triggerDamageEffect } from '../engine/screenEffects.js';
+import { spawnBlood } from '../engine/particles.js';
 
 // Düşman tipleri
 export const ENEMY_TYPES = {
@@ -78,9 +80,10 @@ export function createEnemy(type, x, y) {
 
         /**
          * Hasar al
+         * @returns {boolean} Düşman öldü mü?
          */
         takeDamage(amount) {
-            if (this.isDead) return;
+            if (this.isDead) return false;
 
             this.health -= amount;
             this.hurtFlash = 1;
@@ -89,7 +92,9 @@ export function createEnemy(type, x, y) {
 
             if (this.health <= 0) {
                 this.die();
+                return true;
             }
+            return false;
         },
 
         /**
@@ -238,8 +243,11 @@ function attackPlayer(enemy, player, map) {
     // Oyuncuya hasar ver
     player.health -= enemy.damage;
 
-    // Ekranda kırmızı flash
-    game.damageFlash = 1;
+    // Yeni efekt sistemi
+    triggerDamageEffect(enemy.damage);
+
+    // Kan efekti (oyuncu pozisyonunda)
+    spawnBlood(player.x, player.y, 0.5, 5);
 
     console.log(`💥 ${ENEMY_TYPES[enemy.type].name} saldırdı! -${enemy.damage} HP`);
 

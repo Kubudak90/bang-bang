@@ -2,6 +2,7 @@
 
 import { game } from '../core/game.js';
 import { addAmmo, WEAPONS } from '../player/weapon.js';
+import { spawnPickupEffect } from '../engine/particles.js';
 
 // Loot tipleri
 export const LOOT_TYPES = {
@@ -138,6 +139,10 @@ function collectLoot(loot, player) {
     // Her zaman topla
     loot.collected = true;
 
+    // Parçacık efekti
+    const colorObj = hexToRgb(template.color);
+    spawnPickupEffect(loot.x, loot.y, colorObj);
+
     switch (template.type) {
         case 'health': {
             const oldHealth = player.health;
@@ -196,4 +201,16 @@ export function spawnLootsFromMap(lootSpawns) {
     for (const spawn of lootSpawns) {
         spawnRandomLoot(spawn.x, spawn.y);
     }
+}
+
+/**
+ * Hex renk kodunu RGB objesine çevir
+ */
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : { r: 255, g: 255, b: 255 };
 }

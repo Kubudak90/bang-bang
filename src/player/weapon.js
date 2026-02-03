@@ -2,6 +2,7 @@
 
 import { game } from '../core/game.js';
 import { getKeys } from '../input/keyboard.js';
+import { SCREEN } from '../core/config.js';
 
 // Silah tanımları
 export const WEAPONS = {
@@ -51,6 +52,9 @@ let isReloading = false;
 let weaponBob = 0;
 let weaponKick = 0;
 let muzzleFlash = 0;
+
+// Ateş callback (efektler için)
+let onFireCallback = null;
 
 /**
  * Silah sistemini başlat
@@ -123,21 +127,33 @@ function fire() {
     muzzleFlash = 1;
 
     // Hit detection
+    let hitEnemy = null;
     if (weapon.pellets) {
         // Shotgun - çoklu pellet
         for (let i = 0; i < weapon.pellets; i++) {
             const spreadAngle = (Math.random() - 0.5) * weapon.spread * 2;
-            checkHit(spreadAngle, weapon.damage, weapon.range);
+            const hit = checkHit(spreadAngle, weapon.damage, weapon.range);
+            if (hit) hitEnemy = hit;
         }
     } else {
         // Tek mermi
         const spreadAngle = (Math.random() - 0.5) * weapon.spread * 2;
-        checkHit(spreadAngle, weapon.damage, weapon.range);
+        hitEnemy = checkHit(spreadAngle, weapon.damage, weapon.range);
+    }
+
+    // Ateş callback'i çağır (efektler için)
+    if (onFireCallback) {
+        onFireCallback({
+            weapon: currentWeapon,
+            player: game.player,
+            hit: hitEnemy
+        });
     }
 }
 
 /**
  * Hit kontrolü - düşmana isabet ettik mi?
+ * @returns {Object|null} Hit bilgisi veya null
  */
 function checkHit(spreadAngle, damage, range) {
     const player = game.player;
@@ -148,8 +164,17 @@ function checkHit(spreadAngle, damage, range) {
 
     if (hit && hit.enemy) {
         // Düşmana hasar ver
-        hit.enemy.takeDamage(damage);
+        const killed = hit.enemy.takeDamage(damage);
+        return {
+            enemy: hit.enemy,
+            distance: hit.distance,
+            killed: killed,
+            x: hit.enemy.x,
+            y: hit.enemy.y
+        };
     }
+
+    return null;
 }
 
 /**
@@ -237,4 +262,30 @@ export function addAmmo(weaponId, amount) {
     if (weapon && weapon.ammo !== Infinity) {
         weapon.ammo = Math.min(weapon.ammo + amount, weapon.maxAmmo);
     }
+}
+
+/**
+ * Ateş callback'i ayarla
+ * Parçacık efektleri için main.js'den çağrılır
+ */
+export function setOnFireCallback(callback) {
+    onFireCallback = callback;
+}
+
+/**
+ * Ekran pozisyonu al (kovan atma için)
+ */
+export function getWeaponScreenPosition() {
+    const weapon = WEAPONS[currentWeapon];
+    const baseX = SCREEN.WIDTH / 2;
+    const baseY = SCREEN.HEIGHT - 20;
+
+    const bobX = Math.sin(weaponBob) * 5;
+    const bobY = Math.abs(Math.cos(weaponBob * 2)) * 3;
+    const kickY = weaponKick * 30;
+
+    return {
+        x: baseX + bobX + 30, // Kovan sağdan atılır
+        y: baseY + bobY + kickY - 60
+    };
 }

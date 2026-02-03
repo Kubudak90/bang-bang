@@ -12,7 +12,7 @@ import { initKeyboard, getKeys } from './input/keyboard.js';
 import { initMouse, consumeMouseDelta } from './input/mouse.js';
 import { initTouchControls, getTouchControls, isTouchDevice } from './input/touchControls.js';
 import { createPlayer, updatePlayer } from './player/player.js';
-import { initWeapons, updateWeapon, getCurrentWeapon } from './player/weapon.js';
+import { initWeapons, updateWeapon, getCurrentWeapon, setOnFireCallback, getWeaponScreenPosition } from './player/weapon.js';
 import { generateMap } from './world/mapGenerator.js';
 import { spawnEnemy, updateAllEnemies } from './enemies/enemy.js';
 import { updateLoots, spawnLootsFromMap, clearLoots } from './world/loot.js';
@@ -23,6 +23,17 @@ import { renderSprites } from './engine/spriteRenderer.js';
 import { renderMinimap } from './ui/minimap.js';
 import { renderWeapon } from './ui/weaponRenderer.js';
 import { updateDebugInfo, renderHud } from './ui/hud.js';
+
+// Effects imports
+import {
+    initParticles, updateParticles, renderWorldParticles, renderScreenParticles,
+    spawnMuzzleFlash, spawnBlood, spawnDeathEffect, spawnAmbientDust, clearParticles,
+    spawnShellCasing, spawnHitMarker, spawnPickupEffect
+} from './engine/particles.js';
+import {
+    updateScreenEffects, renderScreenEffects, getShakeOffset,
+    triggerDamageEffect, triggerKillEffect, triggerScreenShake, resetEffects
+} from './engine/screenEffects.js';
 
 // Network imports
 import { gameClient } from './network/client.js';
@@ -38,6 +49,47 @@ import { initMiniApp, getUser } from './farcaster/miniApp.js';
 
 let currentLevel = 1;
 let gameMode = 'menu'; // 'menu', 'singleplayer', 'multiplayer', 'connecting'
+
+// ============================================
+// WEAPON FIRE HANDLER (Parçacık efektleri)
+// ============================================
+
+function handleWeaponFire(data) {
+    const { weapon, player, hit } = data;
+
+    if (!player) return;
+
+    // Muzzle flash parçacıkları
+    spawnMuzzleFlash(player.x, player.y, player.angle);
+
+    // Kovan atma (ekran üzerinde)
+    const weaponPos = getWeaponScreenPosition();
+    spawnShellCasing(weaponPos.x, weaponPos.y);
+
+    // Screen shake (silah tipine göre)
+    if (weapon === 'shotgun') {
+        triggerScreenShake(6, 0.12);
+    } else if (weapon === 'machinegun') {
+        triggerScreenShake(2, 0.05);
+    } else {
+        triggerScreenShake(3, 0.08);
+    }
+
+    // Düşmana isabet ettiyse
+    if (hit) {
+        // Kan parçacıkları
+        spawnBlood(hit.x, hit.y, 0.5, 8);
+
+        // Hit marker
+        spawnHitMarker();
+
+        // Düşman öldüyse
+        if (hit.killed) {
+            spawnDeathEffect(hit.x, hit.y);
+            triggerKillEffect();
+        }
+    }
+}
 
 // ============================================
 // INITIALIZATION
@@ -61,11 +113,17 @@ async function init() {
     // Texture'ları oluştur
     initTextures();
 
+    // Parçacık sistemini başlat
+    initParticles();
+
     // Input sistemlerini başlat
     initKeyboard();
     initMouse(canvas);
     initTouchControls(canvas);
     initWeapons();
+
+    // Silah ateş callback'i - parçacık efektleri için
+    setOnFireCallback(handleWeaponFire);
 
     // Farcaster init (if available)
     try {
@@ -298,6 +356,13 @@ function singleplayerLoop(currentTime) {
         updateWeapon(game.deltaTime);
         updateAllEnemies(game.player, game.map, game.deltaTime);
         updateLoots(game.player, game.deltaTime);
+
+        // Parçacık ve efekt güncelleme
+        updateParticles(game.deltaTime);
+        updateScreenEffects(game.deltaTime, game.player);
+
+        // Ortam parçacıkları
+        spawnAmbientDust(game.player);
 
         // Level complete check
         if (game.enemies.length === 0) {
@@ -623,6 +688,10 @@ function multiplayerLoop(currentTime) {
     // Update weapon animation
     updateWeapon(game.deltaTime);
 
+    // Parçacık ve efekt güncelleme
+    updateParticles(game.deltaTime);
+    updateScreenEffects(game.deltaTime, localPlayer);
+
     // RENDER
     renderGame(localPlayer);
 
@@ -664,11 +733,26 @@ function renderGame(viewPlayer) {
     const rays = castRays(viewPlayer, game.map);
     const pitch = viewPlayer.pitch || 0;
 
+    // Screen shake offset uygula
+    const shake = getShakeOffset();
+    if (shake.x !== 0 || shake.y !== 0) {
+        ctx.save();
+        ctx.translate(shake.x, shake.y);
+    }
+
     clearScreen(ctx);
     renderWorld(ctx, rays, game.map, pitch);
 
     // Sprites (enemies/players + loot)
     renderSprites(ctx, rays);
+
+    // Dünya parçacıkları (3D)
+    renderWorldParticles(ctx, viewPlayer, rays);
+
+    // Screen shake restore
+    if (shake.x !== 0 || shake.y !== 0) {
+        ctx.restore();
+    }
 
     // Minimap
     if (game.debug.showMinimap) {
@@ -677,6 +761,9 @@ function renderGame(viewPlayer) {
 
     // Weapon
     renderWeapon(ctx);
+
+    // Ekran parçacıkları (2D - kovanlar vs)
+    renderScreenParticles(ctx);
 
     // Touch controls
     const touch = getTouchControls();
@@ -687,7 +774,10 @@ function renderGame(viewPlayer) {
     // HUD
     renderHud(ctx, viewPlayer);
 
-    // Damage flash
+    // Ekran efektleri (vignette, damage, low health vs)
+    renderScreenEffects(ctx);
+
+    // Eski damage flash sistemi (geriye uyumluluk)
     if (game.damageFlash && game.damageFlash.time > 0) {
         ctx.fillStyle = `rgba(255, 0, 0, ${game.damageFlash.intensity})`;
         ctx.fillRect(0, 0, SCREEN.WIDTH, SCREEN.HEIGHT);

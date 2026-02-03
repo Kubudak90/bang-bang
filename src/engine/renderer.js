@@ -1,8 +1,10 @@
 // Renderer - Canvas'a çizim (texture mapping ile)
 // Optimized: ImageData batch rendering
+// Enhanced: Fog, atmospheric lighting, ambient effects
 
 import { SCREEN, RAYCASTER } from '../core/config.js';
 import { getTexture, TEXTURE_SIZE } from './textures.js';
+import { game } from '../core/game.js';
 
 // Texture mapping için duvar tipleri
 const WALL_TEXTURES = {
@@ -19,6 +21,24 @@ let frameImageData = null;
 // Zemin/tavan renkleri (pre-calculated)
 const CEILING_COLOR = { r: 26, g: 26, b: 46 };
 const FLOOR_COLOR = { r: 22, g: 33, b: 62 };
+
+// ============================================
+// FOG / ATMOSPHERE SETTINGS
+// ============================================
+const FOG_SETTINGS = {
+    enabled: true,
+    color: { r: 15, g: 20, b: 35 },  // Koyu mavi sis
+    density: 0.08,                     // Sis yoğunluğu
+    startDistance: 2,                  // Sis başlangıç mesafesi
+    maxDistance: 15                    // Tam sis mesafesi
+};
+
+// Ambient light (ortam ışığı)
+const AMBIENT_SETTINGS = {
+    flicker: true,                     // Işık titrşimi
+    flickerIntensity: 0.03,            // Titreşim şiddeti
+    flickerSpeed: 8                    // Titreşim hızı
+};
 
 // Pre-calculated gradient lookup tables
 let ceilingGradient = null;
@@ -91,6 +111,7 @@ export function renderWorld(ctx, rays, map, pitch = 0) {
 /**
  * Zemin ve tavan render (pre-calculated gradient ile)
  * Pitch değerine göre horizon kaydırılır
+ * Fog efekti mesafeye göre uygulanır
  */
 function renderFloorAndCeiling() {
     const height = SCREEN.HEIGHT;
@@ -109,9 +130,24 @@ function renderFloorAndCeiling() {
             const gradY = Math.floor((y / horizonY) * (halfHeight - 1));
             const clampedGradY = Math.max(0, Math.min(halfHeight - 1, gradY));
             const gradIdx = clampedGradY * 3;
-            const r = ceilingGradient[gradIdx];
-            const g = ceilingGradient[gradIdx + 1];
-            const b = ceilingGradient[gradIdx + 2];
+
+            // Uzaklığa göre fog hesapla (ufka yakın = uzak)
+            const distFactor = 1 - (y / horizonY);  // 0 = yakın, 1 = uzak
+            let fogFactor = 0;
+            if (FOG_SETTINGS.enabled) {
+                fogFactor = distFactor * distFactor * 0.6;  // Quadratic falloff
+            }
+
+            let r = ceilingGradient[gradIdx];
+            let g = ceilingGradient[gradIdx + 1];
+            let b = ceilingGradient[gradIdx + 2];
+
+            // Fog uygula
+            if (fogFactor > 0) {
+                r = Math.floor(r * (1 - fogFactor) + FOG_SETTINGS.color.r * fogFactor);
+                g = Math.floor(g * (1 - fogFactor) + FOG_SETTINGS.color.g * fogFactor);
+                b = Math.floor(b * (1 - fogFactor) + FOG_SETTINGS.color.b * fogFactor);
+            }
 
             for (let x = 0; x < width; x++) {
                 const idx = rowStart + x * 4;
@@ -126,9 +162,24 @@ function renderFloorAndCeiling() {
             const gradY = Math.floor(((y - horizonY) / floorHeight) * (halfHeight - 1));
             const clampedGradY = Math.max(0, Math.min(halfHeight - 1, gradY));
             const gradIdx = clampedGradY * 3;
-            const r = floorGradient[gradIdx];
-            const g = floorGradient[gradIdx + 1];
-            const b = floorGradient[gradIdx + 2];
+
+            // Uzaklığa göre fog hesapla
+            const distFactor = (y - horizonY) / floorHeight;  // 0 = yakın, 1 = uzak
+            let fogFactor = 0;
+            if (FOG_SETTINGS.enabled) {
+                fogFactor = (1 - distFactor) * (1 - distFactor) * 0.5;  // Ters - uzak daha yoğun
+            }
+
+            let r = floorGradient[gradIdx];
+            let g = floorGradient[gradIdx + 1];
+            let b = floorGradient[gradIdx + 2];
+
+            // Fog uygula
+            if (fogFactor > 0) {
+                r = Math.floor(r * (1 - fogFactor) + FOG_SETTINGS.color.r * fogFactor);
+                g = Math.floor(g * (1 - fogFactor) + FOG_SETTINGS.color.g * fogFactor);
+                b = Math.floor(b * (1 - fogFactor) + FOG_SETTINGS.color.b * fogFactor);
+            }
 
             for (let x = 0; x < width; x++) {
                 const idx = rowStart + x * 4;
@@ -144,10 +195,20 @@ function renderFloorAndCeiling() {
 /**
  * Duvarları texture mapping ile render et
  * Pitch değerine göre duvarlar kaydırılır
+ * Fog ve atmosferik efektler uygulanır
  */
 function renderWalls(rays, map) {
     const width = SCREEN.WIDTH;
     const height = SCREEN.HEIGHT;
+
+    // Ambient light flicker
+    let ambientMod = 1.0;
+    if (AMBIENT_SETTINGS.flicker) {
+        const time = performance.now() / 1000;
+        const flicker1 = Math.sin(time * AMBIENT_SETTINGS.flickerSpeed) * 0.5 + 0.5;
+        const flicker2 = Math.sin(time * AMBIENT_SETTINGS.flickerSpeed * 1.7 + 1.3) * 0.5 + 0.5;
+        ambientMod = 1 - AMBIENT_SETTINGS.flickerIntensity * (flicker1 * 0.6 + flicker2 * 0.4);
+    }
 
     for (let x = 0; x < rays.length; x++) {
         const ray = rays[x];
@@ -172,11 +233,21 @@ function renderWalls(rays, map) {
         if (texX >= TEXTURE_SIZE) texX = TEXTURE_SIZE - 1;
 
         // Mesafe bazlı karartma
-        const brightness = Math.max(0.15, 1 - ray.correctedDistance / RAYCASTER.MAX_DEPTH);
+        const baseBrightness = Math.max(0.15, 1 - ray.correctedDistance / RAYCASTER.MAX_DEPTH);
 
-        // Yön bazlı ek karartma
-        const sideBrightness = (ray.side === 1) ? 0.85 : 1.0;
-        const finalBrightness = brightness * sideBrightness;
+        // Yön bazlı ek karartma (yan duvarlar daha koyu)
+        const sideBrightness = (ray.side === 1) ? 0.8 : 1.0;
+
+        // Ambient flicker uygula
+        const finalBrightness = baseBrightness * sideBrightness * ambientMod;
+
+        // Fog hesapla
+        let fogFactor = 0;
+        if (FOG_SETTINGS.enabled) {
+            const fogDist = Math.max(0, ray.correctedDistance - FOG_SETTINGS.startDistance);
+            const fogRange = FOG_SETTINGS.maxDistance - FOG_SETTINGS.startDistance;
+            fogFactor = Math.min(1, (fogDist / fogRange) * FOG_SETTINGS.density * 10);
+        }
 
         // Dikey texture slice çiz
         const drawHeight = drawEnd - drawStart;
@@ -190,9 +261,16 @@ function renderWalls(rays, map) {
 
             // Texture'dan renk al
             const texIdx = (texY * TEXTURE_SIZE + texX) * 4;
-            const r = Math.floor(texData[texIdx] * finalBrightness);
-            const g = Math.floor(texData[texIdx + 1] * finalBrightness);
-            const b = Math.floor(texData[texIdx + 2] * finalBrightness);
+            let r = Math.floor(texData[texIdx] * finalBrightness);
+            let g = Math.floor(texData[texIdx + 1] * finalBrightness);
+            let b = Math.floor(texData[texIdx + 2] * finalBrightness);
+
+            // Fog karıştır (lerp towards fog color)
+            if (fogFactor > 0) {
+                r = Math.floor(r * (1 - fogFactor) + FOG_SETTINGS.color.r * fogFactor);
+                g = Math.floor(g * (1 - fogFactor) + FOG_SETTINGS.color.g * fogFactor);
+                b = Math.floor(b * (1 - fogFactor) + FOG_SETTINGS.color.b * fogFactor);
+            }
 
             // Frame buffer'a yaz
             const fbIdx = (y * width + x) * 4;
@@ -212,4 +290,89 @@ export function clearScreen(ctx) {
     // Ama diğer modüller kullanıyor olabilir
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, SCREEN.WIDTH, SCREEN.HEIGHT);
+}
+
+// ============================================
+// FOG / ATMOSPHERE CONTROLS
+// ============================================
+
+/**
+ * Fog'u aç/kapat
+ */
+export function setFogEnabled(enabled) {
+    FOG_SETTINGS.enabled = enabled;
+}
+
+/**
+ * Fog rengini ayarla
+ */
+export function setFogColor(r, g, b) {
+    FOG_SETTINGS.color.r = r;
+    FOG_SETTINGS.color.g = g;
+    FOG_SETTINGS.color.b = b;
+}
+
+/**
+ * Fog yoğunluğunu ayarla
+ */
+export function setFogDensity(density) {
+    FOG_SETTINGS.density = Math.max(0, Math.min(1, density));
+}
+
+/**
+ * Ambient flicker'ı aç/kapat
+ */
+export function setAmbientFlicker(enabled) {
+    AMBIENT_SETTINGS.flicker = enabled;
+}
+
+/**
+ * Fog ayarlarını al (debug için)
+ */
+export function getFogSettings() {
+    return { ...FOG_SETTINGS };
+}
+
+/**
+ * Level'e göre atmosfer ayarla
+ * Farklı level'lar farklı atmosfere sahip olabilir
+ */
+export function setAtmospherePreset(preset) {
+    switch (preset) {
+        case 'normal':
+            FOG_SETTINGS.enabled = true;
+            FOG_SETTINGS.color = { r: 15, g: 20, b: 35 };
+            FOG_SETTINGS.density = 0.08;
+            AMBIENT_SETTINGS.flicker = true;
+            AMBIENT_SETTINGS.flickerIntensity = 0.03;
+            break;
+
+        case 'dungeon':
+            FOG_SETTINGS.enabled = true;
+            FOG_SETTINGS.color = { r: 10, g: 10, b: 15 };
+            FOG_SETTINGS.density = 0.12;
+            AMBIENT_SETTINGS.flicker = true;
+            AMBIENT_SETTINGS.flickerIntensity = 0.06;
+            break;
+
+        case 'hell':
+            FOG_SETTINGS.enabled = true;
+            FOG_SETTINGS.color = { r: 40, g: 10, b: 5 };
+            FOG_SETTINGS.density = 0.1;
+            AMBIENT_SETTINGS.flicker = true;
+            AMBIENT_SETTINGS.flickerIntensity = 0.08;
+            break;
+
+        case 'tech':
+            FOG_SETTINGS.enabled = true;
+            FOG_SETTINGS.color = { r: 10, g: 25, b: 35 };
+            FOG_SETTINGS.density = 0.06;
+            AMBIENT_SETTINGS.flicker = false;
+            break;
+
+        case 'clear':
+            FOG_SETTINGS.enabled = false;
+            AMBIENT_SETTINGS.flicker = false;
+            break;
+    }
 }

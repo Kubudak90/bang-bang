@@ -1,7 +1,18 @@
-// Audio - basit ses efektleri (Web Audio API ile procedural)
+// Audio - geliştirilmiş ses efektleri (Web Audio API ile procedural)
+// Reverb, filter, ve daha gerçekçi ses sentezi
 
 let audioCtx = null;
 let masterVolume = 0.3;
+let reverbNode = null;
+let masterGain = null;
+
+// Ses ayarları
+const AUDIO_SETTINGS = {
+    reverbEnabled: true,
+    reverbDecay: 1.5,
+    lowPassEnabled: true,
+    lowPassFreq: 8000
+};
 
 /**
  * Ses sistemini başlat
@@ -20,11 +31,69 @@ export function initAudio() {
 function ensureAudioContext() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        setupMasterChain();
     }
     if (audioCtx.state === 'suspended') {
         audioCtx.resume();
     }
     return audioCtx;
+}
+
+/**
+ * Master ses zincirini kur (reverb, gain, vb.)
+ */
+function setupMasterChain() {
+    // Master gain
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = masterVolume;
+    masterGain.connect(audioCtx.destination);
+
+    // Reverb için convolver
+    if (AUDIO_SETTINGS.reverbEnabled) {
+        reverbNode = createReverb(AUDIO_SETTINGS.reverbDecay);
+        reverbNode.connect(masterGain);
+    }
+}
+
+/**
+ * Basit reverb oluştur (impulse response ile)
+ */
+function createReverb(decay) {
+    const convolver = audioCtx.createConvolver();
+    const rate = audioCtx.sampleRate;
+    const length = rate * decay;
+    const impulse = audioCtx.createBuffer(2, length, rate);
+
+    for (let channel = 0; channel < 2; channel++) {
+        const data = impulse.getChannelData(channel);
+        for (let i = 0; i < length; i++) {
+            // Exponential decay with noise
+            data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.5);
+        }
+    }
+
+    convolver.buffer = impulse;
+    return convolver;
+}
+
+/**
+ * Ses node'unu master'a veya reverb'e bağla
+ */
+function connectToMaster(node, useReverb = false) {
+    if (useReverb && reverbNode) {
+        // Dry + Wet mix
+        const dryGain = audioCtx.createGain();
+        const wetGain = audioCtx.createGain();
+        dryGain.gain.value = 0.7;
+        wetGain.gain.value = 0.3;
+
+        node.connect(dryGain);
+        node.connect(wetGain);
+        dryGain.connect(masterGain);
+        wetGain.connect(reverbNode);
+    } else {
+        node.connect(masterGain || audioCtx.destination);
+    }
 }
 
 /**

@@ -1,4 +1,5 @@
 // Keyboard - klavye input yönetimi
+// Enhanced: Sprint, crouch, reload keys
 
 const keys = {
     forward: false,
@@ -6,7 +7,11 @@ const keys = {
     left: false,
     right: false,
     turnLeft: false,
-    turnRight: false
+    turnRight: false,
+    sprint: false,    // Shift
+    crouch: false,    // Ctrl veya C
+    reload: false,    // R
+    interact: false   // E
 };
 
 /**
@@ -36,9 +41,11 @@ function updateKey(code, isPressed) {
     switch (code) {
         // WASD
         case 'KeyW':
+        case 'ArrowUp':
             keys.forward = isPressed;
             break;
         case 'KeyS':
+        case 'ArrowDown':
             keys.backward = isPressed;
             break;
         case 'KeyA':
@@ -53,6 +60,29 @@ function updateKey(code, isPressed) {
             break;
         case 'ArrowRight':
             keys.turnRight = isPressed;
+            break;
+
+        // Sprint (Shift)
+        case 'ShiftLeft':
+        case 'ShiftRight':
+            keys.sprint = isPressed;
+            break;
+
+        // Crouch (Ctrl veya C)
+        case 'ControlLeft':
+        case 'ControlRight':
+        case 'KeyC':
+            keys.crouch = isPressed;
+            break;
+
+        // Reload (R)
+        case 'KeyR':
+            keys.reload = isPressed;
+            break;
+
+        // Interact (E)
+        case 'KeyE':
+            keys.interact = isPressed;
             break;
     }
 }

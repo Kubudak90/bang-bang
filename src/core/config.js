@@ -7,13 +7,33 @@ export const SCREEN = {
 };
 
 export const PLAYER = {
-    MOVE_SPEED: 3.0,      // birim/saniye
-    ROTATION_SPEED: 2.0,  // radyan/saniye (klavye için)
+    // Temel hareket
+    MOVE_SPEED: 4.0,           // maksimum hız (birim/saniye)
+    ROTATION_SPEED: 2.0,       // radyan/saniye (klavye için)
     MOUSE_SENSITIVITY: 0.002,
-    RADIUS: 0.25,         // collision için
+    RADIUS: 0.25,              // collision için
     START_X: 2.5,
     START_Y: 2.5,
-    START_ANGLE: 0
+    START_ANGLE: 0,
+
+    // İvmeli hareket sistemi
+    ACCELERATION: 35.0,        // hızlanma oranı
+    DECELERATION: 15.0,        // yavaşlama (friction)
+    AIR_CONTROL: 0.3,          // havada kontrol (gelecek zıplama için)
+
+    // Koşma ve eğilme
+    SPRINT_MULTIPLIER: 1.6,    // koşarken hız çarpanı
+    CROUCH_MULTIPLIER: 0.5,    // eğilirken hız çarpanı
+    CROUCH_HEIGHT: 0.6,        // eğilme yüksekliği (1.0 = normal)
+
+    // Head bob
+    HEAD_BOB_SPEED: 12.0,      // sallanma hızı
+    HEAD_BOB_AMOUNT: 3.0,      // sallanma miktarı (piksel)
+    HEAD_BOB_SPRINT_MULT: 1.5, // koşarken sallanma artışı
+
+    // View kick
+    VIEW_KICK_RECOVERY: 8.0,   // silah ateşi sonrası toparlanma hızı
+    VIEW_KICK_AMOUNT: 2.0      // varsayılan geri tepme
 };
 
 export const RAYCASTER = {

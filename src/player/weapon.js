@@ -1,4 +1,5 @@
 // Weapon - silah sistemi
+// Enhanced: View kick integration
 
 import { game } from '../core/game.js';
 import { getKeys } from '../input/keyboard.js';
@@ -6,42 +7,55 @@ import { playSound } from '../core/audio.js';
 import { emitMuzzleFlash, emitShell, emitSpark, getParticleSystem } from '../engine/particles.js';
 import { addMuzzleFlash as addMuzzleLight } from '../engine/lighting.js';
 import { SCREEN } from '../core/config.js';
+import { applyViewKick } from './player.js';
 
 // Silah tanımları
 export const WEAPONS = {
     pistol: {
         name: 'Pistol',
         damage: 25,
-        fireRate: 0.4,      // saniye başına atış aralığı
-        spread: 0,          // isabet sapması (radyan)
-        ammo: Infinity,     // sınırsız
+        fireRate: 0.4,
+        spread: 0,
+        ammo: Infinity,
         maxAmmo: Infinity,
-        automatic: false,   // tek tek ateş
+        automatic: false,
         range: 20,
-        color: '#ffcc00'
+        color: '#ffcc00',
+        // View kick
+        kickPitch: 3.0,      // Yukarı kick
+        kickYaw: 0.5,        // Yatay rastgele kick
+        kickRecovery: 1.0    // Toparlanma çarpanı
     },
     shotgun: {
         name: 'Shotgun',
-        damage: 15,         // pellet başına
+        damage: 15,
         fireRate: 0.8,
-        spread: 0.15,       // geniş yayılım
-        pellets: 6,         // pellet sayısı
+        spread: 0.15,
+        pellets: 6,
         ammo: 20,
         maxAmmo: 50,
         automatic: false,
         range: 8,
-        color: '#ff6600'
+        color: '#ff6600',
+        // View kick (güçlü)
+        kickPitch: 8.0,
+        kickYaw: 2.0,
+        kickRecovery: 0.7
     },
     machinegun: {
         name: 'Machine Gun',
         damage: 15,
-        fireRate: 0.1,      // hızlı ateş
+        fireRate: 0.1,
         spread: 0.05,
         ammo: 100,
         maxAmmo: 200,
-        automatic: true,    // basılı tutunca ateş
+        automatic: true,
         range: 15,
-        color: '#ff0000'
+        color: '#ff0000',
+        // View kick (sürekli ama hafif)
+        kickPitch: 1.5,
+        kickYaw: 1.0,
+        kickRecovery: 1.2
     }
 };
 
@@ -126,6 +140,14 @@ function fire() {
     weaponKick = 1;
     muzzleFlash = 1;
 
+    // View kick uygula (kamera geri tepmesi)
+    const player = game.player;
+    if (player && weapon.kickPitch) {
+        const pitchKick = weapon.kickPitch;
+        const yawKick = (Math.random() - 0.5) * weapon.kickYaw;
+        applyViewKick(player, pitchKick, yawKick);
+    }
+
     // Partikül efektleri
     // Muzzle flash - silah pozisyonunda
     const muzzleX = SCREEN.WIDTH / 2 + (Math.random() - 0.5) * 20;
@@ -133,7 +155,6 @@ function fire() {
     emitMuzzleFlash(muzzleX, muzzleY);
 
     // Muzzle flash ışık efekti (dünya koordinatlarında)
-    const player = game.player;
     if (player) {
         const lightX = player.x + Math.cos(player.angle) * 0.5;
         const lightY = player.y + Math.sin(player.angle) * 0.5;

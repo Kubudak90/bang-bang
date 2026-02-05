@@ -11,7 +11,7 @@ import { initAudio, playSound } from './core/audio.js';
 import { initKeyboard, getKeys } from './input/keyboard.js';
 import { initMouse, consumeMouseDelta } from './input/mouse.js';
 import { initTouchControls, getTouchControls, isTouchDevice } from './input/touchControls.js';
-import { createPlayer, updatePlayer } from './player/player.js';
+import { createPlayer, updatePlayer, getHeadBobOffset, applyViewKick } from './player/player.js';
 import { initWeapons, updateWeapon, getCurrentWeapon } from './player/weapon.js';
 import { generateMap } from './world/mapGenerator.js';
 import { spawnEnemy, updateAllEnemies } from './enemies/enemy.js';
@@ -606,7 +606,11 @@ function gatherInput() {
 function renderGame(viewPlayer) {
     const ctx = game.ctx;
     const rays = castRays(viewPlayer, game.map);
-    const pitch = viewPlayer.pitch || 0;
+
+    // Pitch + Head bob offset
+    const basePitch = viewPlayer.pitch || 0;
+    const headBob = getHeadBobOffset(viewPlayer);
+    const pitch = basePitch + headBob.vertical;
 
     clearScreen(ctx);
     renderWorld(ctx, rays, game.map, pitch);

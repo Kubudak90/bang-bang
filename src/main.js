@@ -23,6 +23,7 @@ import { renderSprites } from './engine/spriteRenderer.js';
 import { renderMinimap } from './ui/minimap.js';
 import { renderWeapon } from './ui/weaponRenderer.js';
 import { updateDebugInfo, renderHud } from './ui/hud.js';
+import { initParticleSystem, getParticleSystem } from './engine/particles.js';
 
 // Network imports
 import { gameClient } from './network/client.js';
@@ -60,6 +61,9 @@ async function init() {
 
     // Texture'ları oluştur
     initTextures();
+
+    // Partikül sistemini başlat
+    initParticleSystem(1000);
 
     // Input sistemlerini başlat
     initKeyboard();
@@ -298,6 +302,10 @@ function singleplayerLoop(currentTime) {
         updateWeapon(game.deltaTime);
         updateAllEnemies(game.player, game.map, game.deltaTime);
         updateLoots(game.player, game.deltaTime);
+
+        // Partikül güncelleme
+        const particles = getParticleSystem();
+        if (particles) particles.update(game.deltaTime);
 
         // Level complete check
         if (game.enemies.length === 0) {
@@ -539,6 +547,10 @@ function multiplayerLoop(currentTime) {
     // Update weapon animation
     updateWeapon(game.deltaTime);
 
+    // Partikül güncelleme
+    const particles = getParticleSystem();
+    if (particles) particles.update(game.deltaTime);
+
     // RENDER
     renderGame(localPlayer);
 
@@ -586,6 +598,14 @@ function renderGame(viewPlayer) {
     // Sprites (enemies/players + loot)
     renderSprites(ctx, rays);
 
+    // Dünya partikülleri (3D uzayda)
+    const particles = getParticleSystem();
+    if (particles) {
+        // Z-buffer oluştur
+        const zBuffer = rays.map(r => r.distance);
+        particles.renderWorld(ctx, viewPlayer, zBuffer);
+    }
+
     // Minimap
     if (game.debug.showMinimap) {
         renderMinimap(ctx, game.map, viewPlayer, rays);
@@ -593,6 +613,11 @@ function renderGame(viewPlayer) {
 
     // Weapon
     renderWeapon(ctx);
+
+    // Ekran partikülleri (UI overlay - muzzle flash, kovan)
+    if (particles) {
+        particles.renderScreen(ctx);
+    }
 
     // Touch controls
     const touch = getTouchControls();

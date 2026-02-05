@@ -1,6 +1,8 @@
 // Enemy - düşman sistemi
 
 import { game } from '../core/game.js';
+import { emitBlood, emitExplosion, getParticleSystem } from '../engine/particles.js';
+import { playSound } from '../core/audio.js';
 
 // Düşman tipleri
 export const ENEMY_TYPES = {
@@ -87,6 +89,13 @@ export function createEnemy(type, x, y) {
             this.isAlert = true;
             this.state = 'chase';
 
+            // Kan efekti - hasar yönünde
+            const player = game.player;
+            if (player) {
+                const angleFromPlayer = Math.atan2(this.y - player.y, this.x - player.x);
+                emitBlood(this.x, this.y, angleFromPlayer);
+            }
+
             if (this.health <= 0) {
                 this.die();
             }
@@ -100,6 +109,16 @@ export function createEnemy(type, x, y) {
             this.state = 'dead';
             this.deathTimer = 1;
             game.score = (game.score || 0) + this.points;
+
+            // Büyük kan sıçraması
+            const particles = getParticleSystem();
+            if (particles) {
+                particles.emitBurst(this.x, this.y, 'BLOOD_SPLATTER', 15);
+            }
+
+            // Ölüm sesi
+            playSound('kill');
+
             console.log(`💀 ${template.name} öldü! +${this.points} puan`);
         }
     };

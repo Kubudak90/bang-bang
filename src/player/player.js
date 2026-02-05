@@ -180,10 +180,13 @@ function updateMovement(player, keys, map, dt) {
     if (player.isSprinting) {
         speedMult = PLAYER.SPRINT_MULTIPLIER;
     } else if (player.isCrouching) {
-        speedMult = PLAYER.CROUCH_MULTIPLIER;
+        // Nimble perk: eğilme cezasını kaldırabilir
+        speedMult = player.perkMods?.crouchSpeedPenalty ?? PLAYER.CROUCH_MULTIPLIER;
     }
 
-    const maxSpeed = PLAYER.MOVE_SPEED * speedMult;
+    // Perk hız çarpanı
+    const perkSpeedMult = player.perkMods?.speedMultiplier ?? 1.0;
+    const maxSpeed = PLAYER.MOVE_SPEED * speedMult * perkSpeedMult;
 
     // İleri/geri
     if (keys.forward) {

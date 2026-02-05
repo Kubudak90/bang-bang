@@ -13,6 +13,8 @@ import { initMouse, consumeMouseDelta } from './input/mouse.js';
 import { initTouchControls, getTouchControls, isTouchDevice } from './input/touchControls.js';
 import { createPlayer, updatePlayer, getHeadBobOffset, applyViewKick } from './player/player.js';
 import { initWeapons, updateWeapon, getCurrentWeapon } from './player/weapon.js';
+import { updateProjectiles, renderProjectiles, clearProjectiles } from './player/projectile.js';
+import { initPlayerPerks, updatePerks, addPerk, getActivePerks, clearPerks, PERKS } from './player/perk.js';
 import { generateMap } from './world/mapGenerator.js';
 import { spawnEnemy, updateAllEnemies } from './enemies/enemy.js';
 import { updateLoots, spawnLootsFromMap, clearLoots } from './world/loot.js';
@@ -234,6 +236,9 @@ function startSingleplayer() {
     // Oyuncu oluştur
     game.player = createPlayer();
 
+    // Perk sistemini başlat
+    initPlayerPerks(game.player);
+
     // Level başlat
     startLevel(currentLevel);
 
@@ -252,6 +257,7 @@ function startLevel(level) {
     game.level = level;
     game.enemies = [];
     clearLoots();
+    clearProjectiles();
 
     const mapSize = 24 + Math.min(level * 4, 24);
     game.map = generateMap(mapSize, mapSize, Date.now());
@@ -310,6 +316,12 @@ function singleplayerLoop(currentTime) {
         updateWeapon(game.deltaTime);
         updateAllEnemies(game.player, game.map, game.deltaTime);
         updateLoots(game.player, game.deltaTime);
+
+        // Projectile sistemi güncelle
+        updateProjectiles(game.map, game.deltaTime);
+
+        // Perk sistemi güncelle (regeneration vb.)
+        updatePerks(game.player, game.deltaTime);
 
         // Partikül güncelleme
         const particles = getParticleSystem();
@@ -618,6 +630,9 @@ function renderGame(viewPlayer) {
     // Sprites (enemies/players + loot)
     renderSprites(ctx, rays);
 
+    // Projectiles (roket, plazma mermileri)
+    renderProjectiles(ctx, viewPlayer);
+
     // Dünya partikülleri (3D uzayda)
     const particles = getParticleSystem();
     if (particles) {
@@ -863,6 +878,28 @@ function setupDebugCommands() {
     // Textured floors toggle
     window.floors = () => {
         toggleTexturedFloors();
+    };
+
+    // Perk sistemi debug
+    window.perk = (perkId) => {
+        const player = getLocalPlayer();
+        if (player && PERKS[perkId]) {
+            addPerk(player, perkId);
+        } else {
+            console.log('Mevcut perkler:', Object.keys(PERKS).join(', '));
+        }
+    };
+
+    window.perks = () => {
+        const player = getLocalPlayer();
+        if (player) {
+            const active = getActivePerks(player);
+            if (active.length === 0) {
+                console.log('Aktif perk yok');
+            } else {
+                active.forEach(p => console.log(`${p.icon} ${p.name}: ${p.stacks}/${p.maxStacks}`));
+            }
+        }
     };
 
     // Scoreboard toggle

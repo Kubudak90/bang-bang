@@ -1,5 +1,5 @@
 // Weapon - silah sistemi
-// Enhanced: View kick integration
+// Enhanced: View kick integration, projectile weapons
 
 import { game } from '../core/game.js';
 import { getKeys } from '../input/keyboard.js';
@@ -8,11 +8,20 @@ import { emitMuzzleFlash, emitShell, emitSpark, getParticleSystem } from '../eng
 import { addMuzzleFlash as addMuzzleLight } from '../engine/lighting.js';
 import { SCREEN } from '../core/config.js';
 import { applyViewKick } from './player.js';
+import { spawnProjectile } from './projectile.js';
+import { calculateDamage, getFireRateMultiplier, applyLifesteal } from './perk.js';
+
+// Silah kategorileri
+export const WEAPON_CATEGORY = {
+    HITSCAN: 'hitscan',      // Anında isabet (pistol, shotgun, smg, machinegun)
+    PROJECTILE: 'projectile' // Mermi fırlatma (rocket, plasma)
+};
 
 // Silah tanımları
 export const WEAPONS = {
     pistol: {
         name: 'Pistol',
+        category: WEAPON_CATEGORY.HITSCAN,
         damage: 25,
         fireRate: 0.4,
         spread: 0,
@@ -21,13 +30,13 @@ export const WEAPONS = {
         automatic: false,
         range: 20,
         color: '#ffcc00',
-        // View kick
-        kickPitch: 3.0,      // Yukarı kick
-        kickYaw: 0.5,        // Yatay rastgele kick
-        kickRecovery: 1.0    // Toparlanma çarpanı
+        kickPitch: 3.0,
+        kickYaw: 0.5,
+        kickRecovery: 1.0
     },
     shotgun: {
         name: 'Shotgun',
+        category: WEAPON_CATEGORY.HITSCAN,
         damage: 15,
         fireRate: 0.8,
         spread: 0.15,
@@ -37,13 +46,28 @@ export const WEAPONS = {
         automatic: false,
         range: 8,
         color: '#ff6600',
-        // View kick (güçlü)
         kickPitch: 8.0,
         kickYaw: 2.0,
         kickRecovery: 0.7
     },
+    smg: {
+        name: 'SMG',
+        category: WEAPON_CATEGORY.HITSCAN,
+        damage: 12,
+        fireRate: 0.07,
+        spread: 0.08,
+        ammo: 150,
+        maxAmmo: 300,
+        automatic: true,
+        range: 12,
+        color: '#ffaa00',
+        kickPitch: 1.0,
+        kickYaw: 0.8,
+        kickRecovery: 1.5
+    },
     machinegun: {
         name: 'Machine Gun',
+        category: WEAPON_CATEGORY.HITSCAN,
         damage: 15,
         fireRate: 0.1,
         spread: 0.05,
@@ -52,10 +76,35 @@ export const WEAPONS = {
         automatic: true,
         range: 15,
         color: '#ff0000',
-        // View kick (sürekli ama hafif)
         kickPitch: 1.5,
         kickYaw: 1.0,
         kickRecovery: 1.2
+    },
+    rocket: {
+        name: 'Rocket Launcher',
+        category: WEAPON_CATEGORY.PROJECTILE,
+        projectileType: 'rocket',
+        fireRate: 1.2,
+        ammo: 10,
+        maxAmmo: 30,
+        automatic: false,
+        color: '#ff4400',
+        kickPitch: 6.0,
+        kickYaw: 1.0,
+        kickRecovery: 0.8
+    },
+    plasma: {
+        name: 'Plasma Rifle',
+        category: WEAPON_CATEGORY.PROJECTILE,
+        projectileType: 'plasma',
+        fireRate: 0.15,
+        ammo: 80,
+        maxAmmo: 200,
+        automatic: true,
+        color: '#00ffff',
+        kickPitch: 1.2,
+        kickYaw: 0.5,
+        kickRecovery: 1.3
     }
 };
 
@@ -88,11 +137,14 @@ export function initWeapons() {
         }
     });
 
-    // Silah değiştirme (1-2-3)
+    // Silah değiştirme (1-6)
     document.addEventListener('keydown', (e) => {
         if (e.key === '1') switchWeapon('pistol');
         if (e.key === '2') switchWeapon('shotgun');
-        if (e.key === '3') switchWeapon('machinegun');
+        if (e.key === '3') switchWeapon('smg');
+        if (e.key === '4') switchWeapon('machinegun');
+        if (e.key === '5') switchWeapon('rocket');
+        if (e.key === '6') switchWeapon('plasma');
     });
 
     console.log('🔫 Silah sistemi başlatıldı');
@@ -115,8 +167,13 @@ function switchWeapon(weaponId) {
 function tryFire() {
     const now = performance.now() / 1000;
     const weapon = WEAPONS[currentWeapon];
+    const player = game.player;
 
-    if (now - lastFireTime < weapon.fireRate) return;
+    // Perk'li ateş hızı
+    const fireRateMult = getFireRateMultiplier(player);
+    const actualFireRate = weapon.fireRate * fireRateMult;
+
+    if (now - lastFireTime < actualFireRate) return;
     if (weapon.ammo <= 0) return;
     if (isReloading) return;
 
@@ -130,6 +187,7 @@ function tryFire() {
  */
 function fire() {
     const weapon = WEAPONS[currentWeapon];
+    const player = game.player;
 
     // Mermi azalt
     if (weapon.ammo !== Infinity) {
@@ -141,7 +199,6 @@ function fire() {
     muzzleFlash = 1;
 
     // View kick uygula (kamera geri tepmesi)
-    const player = game.player;
     if (player && weapon.kickPitch) {
         const pitchKick = weapon.kickPitch;
         const yawKick = (Math.random() - 0.5) * weapon.kickYaw;
@@ -161,27 +218,40 @@ function fire() {
         addMuzzleLight(lightX, lightY);
     }
 
-    // Kovan fırlatma (shotgun için değil)
-    if (currentWeapon !== 'shotgun') {
-        const shellX = SCREEN.WIDTH / 2 + 40;
-        const shellY = SCREEN.HEIGHT - 100;
-        emitShell(shellX, shellY);
-    }
-
     // Ses çal
     playSound(currentWeapon);
 
-    // Hit detection
-    if (weapon.pellets) {
-        // Shotgun - çoklu pellet
-        for (let i = 0; i < weapon.pellets; i++) {
-            const spreadAngle = (Math.random() - 0.5) * weapon.spread * 2;
-            checkHit(spreadAngle, weapon.damage, weapon.range);
+    // Silah kategorisine göre işlem
+    if (weapon.category === WEAPON_CATEGORY.PROJECTILE) {
+        // Projectile silahları - mermi fırlat
+        if (player) {
+            const spawnDist = 0.5; // Oyuncunun biraz önünde spawn
+            const spawnX = player.x + Math.cos(player.angle) * spawnDist;
+            const spawnY = player.y + Math.sin(player.angle) * spawnDist;
+            spawnProjectile(weapon.projectileType, spawnX, spawnY, player.angle, 'player');
         }
     } else {
-        // Tek mermi
-        const spreadAngle = (Math.random() - 0.5) * weapon.spread * 2;
-        checkHit(spreadAngle, weapon.damage, weapon.range);
+        // Hitscan silahları - anında isabet
+
+        // Kovan fırlatma (shotgun ve rocket için değil)
+        if (currentWeapon !== 'shotgun' && currentWeapon !== 'rocket') {
+            const shellX = SCREEN.WIDTH / 2 + 40;
+            const shellY = SCREEN.HEIGHT - 100;
+            emitShell(shellX, shellY);
+        }
+
+        // Hit detection
+        if (weapon.pellets) {
+            // Shotgun - çoklu pellet
+            for (let i = 0; i < weapon.pellets; i++) {
+                const spreadAngle = (Math.random() - 0.5) * weapon.spread * 2;
+                checkHit(spreadAngle, weapon.damage, weapon.range);
+            }
+        } else {
+            // Tek mermi
+            const spreadAngle = (Math.random() - 0.5) * (weapon.spread || 0) * 2;
+            checkHit(spreadAngle, weapon.damage, weapon.range);
+        }
     }
 }
 
@@ -196,8 +266,14 @@ function checkHit(spreadAngle, damage, range) {
     const hit = castWeaponRay(player.x, player.y, angle, range);
 
     if (hit && hit.enemy) {
+        // Perk'li hasar hesapla
+        const actualDamage = calculateDamage(damage, player);
+
         // Düşmana hasar ver
-        hit.enemy.takeDamage(damage);
+        hit.enemy.takeDamage(actualDamage);
+
+        // Lifesteal uygula
+        applyLifesteal(player, actualDamage);
     }
 }
 

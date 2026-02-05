@@ -17,7 +17,7 @@ import { generateMap } from './world/mapGenerator.js';
 import { spawnEnemy, updateAllEnemies } from './enemies/enemy.js';
 import { updateLoots, spawnLootsFromMap, clearLoots } from './world/loot.js';
 import { castRays } from './engine/raycaster.js';
-import { renderWorld, clearScreen } from './engine/renderer.js';
+import { renderWorld, clearScreen, toggleTexturedFloors } from './engine/renderer.js';
 import { initTextures } from './engine/textures.js';
 import { renderSprites } from './engine/spriteRenderer.js';
 import { renderMinimap } from './ui/minimap.js';
@@ -854,6 +854,11 @@ function setupDebugCommands() {
             pp.applyPreset(name);
             console.log(`Applied preset: ${name}`);
         }
+    };
+
+    // Textured floors toggle
+    window.floors = () => {
+        toggleTexturedFloors();
     };
 
     // Scoreboard toggle

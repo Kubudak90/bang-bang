@@ -25,6 +25,7 @@ import { renderWeapon } from './ui/weaponRenderer.js';
 import { updateDebugInfo, renderHud } from './ui/hud.js';
 import { initParticleSystem, getParticleSystem } from './engine/particles.js';
 import { initLightingSystem, getLightingSystem } from './engine/lighting.js';
+import { initPostProcessor, getPostProcessor, triggerDamageEffect } from './engine/postProcess.js';
 
 // Network imports
 import { gameClient } from './network/client.js';
@@ -68,6 +69,9 @@ async function init() {
 
     // Işık sistemini başlat
     initLightingSystem();
+
+    // Post-processing sistemini başlat
+    initPostProcessor();
 
     // Input sistemlerini başlat
     initKeyboard();
@@ -640,11 +644,19 @@ function renderGame(viewPlayer) {
     // HUD
     renderHud(ctx, viewPlayer);
 
-    // Damage flash
+    // Damage flash (eski sistem - post-process ile değiştirildi)
     if (game.damageFlash && game.damageFlash.time > 0) {
-        ctx.fillStyle = `rgba(255, 0, 0, ${game.damageFlash.intensity})`;
-        ctx.fillRect(0, 0, SCREEN.WIDTH, SCREEN.HEIGHT);
+        // Post-processor'a damage efekti tetikle
+        triggerDamageEffect(game.damageFlash.intensity);
         game.damageFlash.time -= game.deltaTime;
+    }
+
+    // Post-processing efektleri uygula
+    const postProcessor = getPostProcessor();
+    if (postProcessor && postProcessor.enabled) {
+        const imageData = ctx.getImageData(0, 0, SCREEN.WIDTH, SCREEN.HEIGHT);
+        postProcessor.process(ctx, imageData);
+        ctx.putImageData(imageData, 0, 0);
     }
 
     // Pickup flash
@@ -818,6 +830,30 @@ function setupDebugCommands() {
             player.maxHealth = player.health;
         }
         console.log(`Godmode: ${game.debug.godmode ? 'ON' : 'OFF'}`);
+    };
+
+    window.postfx = () => {
+        const pp = getPostProcessor();
+        if (pp) {
+            const enabled = pp.toggle();
+            console.log(`Post-processing: ${enabled ? 'ON' : 'OFF'}`);
+        }
+    };
+
+    window.crt = () => {
+        const pp = getPostProcessor();
+        if (pp) {
+            const enabled = pp.toggleEffect('CRT');
+            console.log(`CRT effect: ${enabled ? 'ON' : 'OFF'}`);
+        }
+    };
+
+    window.preset = (name) => {
+        const pp = getPostProcessor();
+        if (pp) {
+            pp.applyPreset(name);
+            console.log(`Applied preset: ${name}`);
+        }
     };
 
     // Scoreboard toggle

@@ -16,7 +16,8 @@ import { initWeapons, updateWeapon, getCurrentWeapon } from './player/weapon.js'
 import { updateProjectiles, renderProjectiles, clearProjectiles } from './player/projectile.js';
 import { initPlayerPerks, updatePerks, addPerk, getActivePerks, clearPerks, PERKS } from './player/perk.js';
 import { generateMap } from './world/mapGenerator.js';
-import { spawnEnemy, updateAllEnemies } from './enemies/enemy.js';
+import { spawnEnemy, updateAllEnemies, toggleAIMode } from './enemies/enemy.js';
+import { spawnBoss, hasActiveBoss, updateBoss } from './enemies/boss.js';
 import { updateLoots, spawnLootsFromMap, clearLoots } from './world/loot.js';
 import { castRays } from './engine/raycaster.js';
 import { renderWorld, clearScreen, toggleTexturedFloors } from './engine/renderer.js';
@@ -278,30 +279,73 @@ function startLevel(level) {
 
 function spawnEnemiesForLevel(level) {
     const enemySpawns = game.map.enemySpawns;
-    const types = ['grunt', 'shooter', 'charger'];
 
-    for (const spawn of enemySpawns) {
-        let typeIndex;
-        const roll = Math.random();
+    // Level'a göre düşman havuzu
+    let types;
+    if (level <= 2) {
+        types = ['grunt', 'shooter'];
+    } else if (level <= 4) {
+        types = ['grunt', 'shooter', 'charger'];
+    } else if (level <= 6) {
+        types = ['grunt', 'shooter', 'charger', 'sniper'];
+    } else if (level <= 8) {
+        types = ['shooter', 'charger', 'sniper', 'tank'];
+    } else {
+        types = ['charger', 'sniper', 'tank', 'ninja'];
+    }
 
-        if (level <= 2) {
-            typeIndex = roll < 0.8 ? 0 : 1;
-        } else if (level <= 4) {
-            typeIndex = roll < 0.5 ? 0 : (roll < 0.85 ? 1 : 2);
-        } else {
-            typeIndex = roll < 0.3 ? 0 : (roll < 0.6 ? 1 : 2);
+    // Boss level'ları (her 5 level)
+    const isBossLevel = level % 5 === 0 && level > 0;
+
+    if (isBossLevel) {
+        // Boss spawn
+        const bossTypes = ['demon', 'mech', 'shadow'];
+        const bossType = bossTypes[Math.floor(level / 5 - 1) % bossTypes.length];
+
+        // Boss'u haritanın merkezine yakın spawn et
+        const bossSpawn = enemySpawns[Math.floor(enemySpawns.length / 2)] || enemySpawns[0];
+        if (bossSpawn) {
+            spawnBoss(bossType, bossSpawn.x, bossSpawn.y);
         }
 
-        const type = types[typeIndex];
-        const enemy = spawnEnemy(type, spawn.x, spawn.y);
+        // Boss level'ında daha az normal düşman
+        const reducedSpawns = enemySpawns.slice(0, Math.floor(enemySpawns.length / 2));
+        for (const spawn of reducedSpawns) {
+            if (spawn === bossSpawn) continue;
 
-        if (enemy && level > 1) {
-            const bonus = 1 + (level - 1) * 0.15;
-            enemy.health = Math.floor(enemy.health * bonus);
-            enemy.maxHealth = enemy.health;
-            enemy.damage = Math.floor(enemy.damage * bonus);
+            const type = types[Math.floor(Math.random() * types.length)];
+            const enemy = spawnEnemy(type, spawn.x, spawn.y);
+            applyLevelScaling(enemy, level);
+        }
+    } else {
+        // Normal level
+        for (const spawn of enemySpawns) {
+            const roll = Math.random();
+            let type;
+
+            // Level'a göre ağırlıklı seçim
+            if (level <= 2) {
+                type = roll < 0.7 ? 'grunt' : 'shooter';
+            } else if (level <= 4) {
+                type = roll < 0.4 ? 'grunt' : (roll < 0.75 ? 'shooter' : 'charger');
+            } else {
+                // Rastgele seç
+                type = types[Math.floor(Math.random() * types.length)];
+            }
+
+            const enemy = spawnEnemy(type, spawn.x, spawn.y);
+            applyLevelScaling(enemy, level);
         }
     }
+}
+
+function applyLevelScaling(enemy, level) {
+    if (!enemy || level <= 1) return;
+
+    const bonus = 1 + (level - 1) * 0.15;
+    enemy.health = Math.floor(enemy.health * bonus);
+    enemy.maxHealth = enemy.health;
+    enemy.damage = Math.floor(enemy.damage * bonus);
 }
 
 function singleplayerLoop(currentTime) {
@@ -900,6 +944,31 @@ function setupDebugCommands() {
                 active.forEach(p => console.log(`${p.icon} ${p.name}: ${p.stacks}/${p.maxStacks}`));
             }
         }
+    };
+
+    // Düşman spawn debug
+    window.enemy = (type, x, y) => {
+        const player = getLocalPlayer();
+        if (!player) return;
+
+        const spawnX = x ?? player.x + Math.cos(player.angle) * 3;
+        const spawnY = y ?? player.y + Math.sin(player.angle) * 3;
+        spawnEnemy(type, spawnX, spawnY);
+    };
+
+    // Boss spawn debug
+    window.boss = (type = 'demon', x, y) => {
+        const player = getLocalPlayer();
+        if (!player) return;
+
+        const spawnX = x ?? player.x + Math.cos(player.angle) * 5;
+        const spawnY = y ?? player.y + Math.sin(player.angle) * 5;
+        spawnBoss(type, spawnX, spawnY);
+    };
+
+    // AI mode toggle
+    window.ai = () => {
+        toggleAIMode();
     };
 
     // Scoreboard toggle

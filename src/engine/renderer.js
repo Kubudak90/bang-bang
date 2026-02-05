@@ -1,8 +1,10 @@
 // Renderer - Canvas'a çizim (texture mapping ile)
-// Optimized: ImageData batch rendering
+// Optimized: ImageData batch rendering + Dynamic lighting
 
 import { SCREEN, RAYCASTER } from '../core/config.js';
 import { getTexture, TEXTURE_SIZE } from './textures.js';
+import { getLightingSystem } from './lighting.js';
+import { game } from '../core/game.js';
 
 // Texture mapping için duvar tipleri
 const WALL_TEXTURES = {
@@ -144,10 +146,18 @@ function renderFloorAndCeiling() {
 /**
  * Duvarları texture mapping ile render et
  * Pitch değerine göre duvarlar kaydırılır
+ * Dynamic lighting entegrasyonu
  */
 function renderWalls(rays, map) {
     const width = SCREEN.WIDTH;
     const height = SCREEN.HEIGHT;
+
+    // Işık sistemi
+    const lighting = getLightingSystem();
+    const player = game.player;
+    const playerX = player ? player.x : 0;
+    const playerY = player ? player.y : 0;
+    const playerAngle = player ? player.angle : 0;
 
     for (let x = 0; x < rays.length; x++) {
         const ray = rays[x];
@@ -172,11 +182,44 @@ function renderWalls(rays, map) {
         if (texX >= TEXTURE_SIZE) texX = TEXTURE_SIZE - 1;
 
         // Mesafe bazlı karartma
-        const brightness = Math.max(0.15, 1 - ray.correctedDistance / RAYCASTER.MAX_DEPTH);
+        const distBrightness = Math.max(0.15, 1 - ray.correctedDistance / RAYCASTER.MAX_DEPTH);
 
         // Yön bazlı ek karartma
         const sideBrightness = (ray.side === 1) ? 0.85 : 1.0;
-        const finalBrightness = brightness * sideBrightness;
+
+        // Dinamik ışık hesaplaması (duvarın dünya koordinatı)
+        let dynamicLight = 0;
+        let lightColorMod = { r: 1, g: 1, b: 1 };
+
+        if (lighting && lighting.getLightCount() > 0) {
+            // Duvarın isabet ettiği dünya koordinatı
+            const wallWorldX = ray.side === 0
+                ? ray.mapX + (ray.stepX > 0 ? 0 : 1)
+                : playerX + ray.correctedDistance * Math.cos(ray.angle);
+            const wallWorldY = ray.side === 1
+                ? ray.mapY + (ray.stepY > 0 ? 0 : 1)
+                : playerY + ray.correctedDistance * Math.sin(ray.angle);
+
+            const lightInfo = lighting.calculateLightAt(
+                wallWorldX, wallWorldY,
+                playerX, playerY, playerAngle
+            );
+
+            dynamicLight = lightInfo.intensity;
+
+            // Işık rengi etkisi (subtle)
+            if (dynamicLight > 0.2) {
+                lightColorMod.r = 1 + (lightInfo.color.r / 255 - 0.5) * 0.3;
+                lightColorMod.g = 1 + (lightInfo.color.g / 255 - 0.5) * 0.3;
+                lightColorMod.b = 1 + (lightInfo.color.b / 255 - 0.5) * 0.3;
+            }
+        } else {
+            // Işık sistemi yoksa veya ışık yoksa varsayılan ambient
+            dynamicLight = 0.25;
+        }
+
+        // Final brightness = distance * side * dynamic light
+        const finalBrightness = distBrightness * sideBrightness * (0.5 + dynamicLight * 0.8);
 
         // Dikey texture slice çiz
         const drawHeight = drawEnd - drawStart;
@@ -190,9 +233,14 @@ function renderWalls(rays, map) {
 
             // Texture'dan renk al
             const texIdx = (texY * TEXTURE_SIZE + texX) * 4;
-            const r = Math.floor(texData[texIdx] * finalBrightness);
-            const g = Math.floor(texData[texIdx + 1] * finalBrightness);
-            const b = Math.floor(texData[texIdx + 2] * finalBrightness);
+            let r = Math.floor(texData[texIdx] * finalBrightness * lightColorMod.r);
+            let g = Math.floor(texData[texIdx + 1] * finalBrightness * lightColorMod.g);
+            let b = Math.floor(texData[texIdx + 2] * finalBrightness * lightColorMod.b);
+
+            // Clamp
+            r = Math.min(255, Math.max(0, r));
+            g = Math.min(255, Math.max(0, g));
+            b = Math.min(255, Math.max(0, b));
 
             // Frame buffer'a yaz
             const fbIdx = (y * width + x) * 4;

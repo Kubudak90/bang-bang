@@ -24,6 +24,7 @@ import { renderMinimap } from './ui/minimap.js';
 import { renderWeapon } from './ui/weaponRenderer.js';
 import { updateDebugInfo, renderHud } from './ui/hud.js';
 import { initParticleSystem, getParticleSystem } from './engine/particles.js';
+import { initLightingSystem, getLightingSystem } from './engine/lighting.js';
 
 // Network imports
 import { gameClient } from './network/client.js';
@@ -64,6 +65,9 @@ async function init() {
 
     // Partikül sistemini başlat
     initParticleSystem(1000);
+
+    // Işık sistemini başlat
+    initLightingSystem();
 
     // Input sistemlerini başlat
     initKeyboard();
@@ -306,6 +310,10 @@ function singleplayerLoop(currentTime) {
         // Partikül güncelleme
         const particles = getParticleSystem();
         if (particles) particles.update(game.deltaTime);
+
+        // Işık sistemi güncelleme
+        const lighting = getLightingSystem();
+        if (lighting) lighting.update(game.deltaTime);
 
         // Level complete check
         if (game.enemies.length === 0) {
@@ -550,6 +558,10 @@ function multiplayerLoop(currentTime) {
     // Partikül güncelleme
     const particles = getParticleSystem();
     if (particles) particles.update(game.deltaTime);
+
+    // Işık sistemi güncelleme
+    const lighting = getLightingSystem();
+    if (lighting) lighting.update(game.deltaTime);
 
     // RENDER
     renderGame(localPlayer);

@@ -4,6 +4,7 @@ import { game } from '../core/game.js';
 import { getKeys } from '../input/keyboard.js';
 import { playSound } from '../core/audio.js';
 import { emitMuzzleFlash, emitShell, emitSpark, getParticleSystem } from '../engine/particles.js';
+import { addMuzzleFlash as addMuzzleLight } from '../engine/lighting.js';
 import { SCREEN } from '../core/config.js';
 
 // Silah tanımları
@@ -130,6 +131,14 @@ function fire() {
     const muzzleX = SCREEN.WIDTH / 2 + (Math.random() - 0.5) * 20;
     const muzzleY = SCREEN.HEIGHT - 80 + (Math.random() - 0.5) * 10;
     emitMuzzleFlash(muzzleX, muzzleY);
+
+    // Muzzle flash ışık efekti (dünya koordinatlarında)
+    const player = game.player;
+    if (player) {
+        const lightX = player.x + Math.cos(player.angle) * 0.5;
+        const lightY = player.y + Math.sin(player.angle) * 0.5;
+        addMuzzleLight(lightX, lightY);
+    }
 
     // Kovan fırlatma (shotgun için değil)
     if (currentWeapon !== 'shotgun') {

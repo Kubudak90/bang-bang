@@ -291,6 +291,46 @@ function playPlasmaSound(pan = 0, vol = 1) {
     osc2.stop(ctx.currentTime + 0.1);
 }
 
+function playRailgunSound(pan = 0, vol = 1) {
+    const ctx = ensureAudioContext();
+    const finalVol = volumes.master * volumes.sfx * vol;
+
+    // Şarj sesi + patlama
+    const osc = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const panner = ctx.createStereoPanner();
+
+    osc.connect(gain);
+    osc2.connect(gain);
+    gain.connect(panner);
+    panner.connect(ctx.destination);
+
+    panner.pan.value = pan;
+
+    // Ana ses - yükselen frekans sonra düşüş
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(100, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(2000, ctx.currentTime + 0.05);
+    osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3);
+
+    // Elektrik cızırtısı
+    osc2.type = 'square';
+    osc2.frequency.setValueAtTime(1500, ctx.currentTime);
+    osc2.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
+
+    gain.gain.setValueAtTime(finalVol * 0.7, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.35);
+    osc2.start(ctx.currentTime);
+    osc2.stop(ctx.currentTime + 0.2);
+
+    // Enerji noise
+    playNoise(0.25, 0.8 * vol, pan);
+}
+
 function playExplosionSound(pan = 0, vol = 1) {
     const ctx = ensureAudioContext();
     const finalVol = volumes.master * volumes.sfx * vol;
@@ -638,6 +678,9 @@ export function playSound(name, pan = 0, vol = 1) {
             break;
         case 'plasma':
             playPlasmaSound(pan, vol);
+            break;
+        case 'railgun':
+            playRailgunSound(pan, vol);
             break;
         case 'explosion':
             playExplosionSound(pan, vol);

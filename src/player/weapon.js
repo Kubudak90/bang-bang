@@ -105,6 +105,22 @@ export const WEAPONS = {
         kickPitch: 1.2,
         kickYaw: 0.5,
         kickRecovery: 1.3
+    },
+    railgun: {
+        name: 'Railgun',
+        category: WEAPON_CATEGORY.HITSCAN,
+        damage: 100,
+        fireRate: 1.5,
+        spread: 0,
+        ammo: 15,
+        maxAmmo: 30,
+        automatic: false,
+        range: 50,
+        penetration: 3,
+        color: '#ff00ff',
+        kickPitch: 10.0,
+        kickYaw: 1.5,
+        kickRecovery: 0.6
     }
 };
 
@@ -137,7 +153,7 @@ export function initWeapons() {
         }
     });
 
-    // Silah değiştirme (1-6)
+    // Silah değiştirme (1-7)
     document.addEventListener('keydown', (e) => {
         if (e.key === '1') switchWeapon('pistol');
         if (e.key === '2') switchWeapon('shotgun');
@@ -145,6 +161,7 @@ export function initWeapons() {
         if (e.key === '4') switchWeapon('machinegun');
         if (e.key === '5') switchWeapon('rocket');
         if (e.key === '6') switchWeapon('plasma');
+        if (e.key === '7') switchWeapon('railgun');
     });
 
     console.log('🔫 Silah sistemi başlatıldı');
@@ -260,9 +277,21 @@ function fire() {
  */
 function checkHit(spreadAngle, damage, range) {
     const player = game.player;
+    const weapon = WEAPONS[currentWeapon];
     const angle = player.angle + spreadAngle;
 
-    // Ray cast ile düşman kontrolü
+    // Railgun penetration - birden fazla düşmana isabet
+    if (weapon.penetration) {
+        const hits = castWeaponRayPenetrating(player.x, player.y, angle, range, weapon.penetration);
+        for (const hit of hits) {
+            const actualDamage = calculateDamage(damage, player);
+            hit.enemy.takeDamage(actualDamage);
+            applyLifesteal(player, actualDamage);
+        }
+        return;
+    }
+
+    // Normal ray cast ile düşman kontrolü
     const hit = castWeaponRay(player.x, player.y, angle, range);
 
     if (hit && hit.enemy) {
@@ -314,6 +343,45 @@ function castWeaponRay(startX, startY, angle, maxDist) {
     }
 
     return closestHit;
+}
+
+/**
+ * Penetrating ray cast (Railgun için)
+ * Birden fazla düşmana isabet edebilir
+ */
+function castWeaponRayPenetrating(startX, startY, angle, maxDist, maxPenetration) {
+    const enemies = game.enemies || [];
+    const dirX = Math.cos(angle);
+    const dirY = Math.sin(angle);
+
+    const hits = [];
+
+    for (const enemy of enemies) {
+        if (enemy.isDead) continue;
+
+        // Düşmana olan vektör
+        const dx = enemy.x - startX;
+        const dy = enemy.y - startY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist > maxDist) continue;
+
+        // Ray üzerinde mi kontrol (dot product)
+        const dot = dx * dirX + dy * dirY;
+        if (dot < 0) continue; // Arkamızda
+
+        // Ray'e perpendicular mesafe
+        const perpDist = Math.abs(dx * dirY - dy * dirX);
+
+        // Düşman yarıçapı içinde mi?
+        if (perpDist < enemy.radius) {
+            hits.push({ enemy, distance: dot });
+        }
+    }
+
+    // Mesafeye göre sırala ve max penetration kadar döndür
+    hits.sort((a, b) => a.distance - b.distance);
+    return hits.slice(0, maxPenetration);
 }
 
 /**

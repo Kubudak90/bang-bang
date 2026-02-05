@@ -36,8 +36,20 @@ export function renderWeapon(ctx) {
         case 'shotgun':
             renderShotgun(ctx, x, y);
             break;
+        case 'smg':
+            renderSMG(ctx, x, y);
+            break;
         case 'machinegun':
             renderMachinegun(ctx, x, y);
+            break;
+        case 'rocket':
+            renderRocketLauncher(ctx, x, y);
+            break;
+        case 'plasma':
+            renderPlasmaRifle(ctx, x, y);
+            break;
+        case 'railgun':
+            renderRailgun(ctx, x, y);
             break;
     }
 
@@ -126,6 +138,155 @@ function renderMachinegun(ctx, x, y) {
     // Highlight
     ctx.fillStyle = '#555';
     ctx.fillRect(x - 3, y - 88, 2, 65);
+}
+
+/**
+ * SMG çiz
+ */
+function renderSMG(ctx, x, y) {
+    // Kısa namlu
+    ctx.fillStyle = '#333';
+    ctx.fillRect(x - 4, y - 65, 8, 45);
+
+    // Gövde
+    ctx.fillStyle = '#444';
+    ctx.fillRect(x - 12, y - 25, 24, 25);
+
+    // Şarjör (uzun)
+    ctx.fillStyle = '#555';
+    ctx.fillRect(x - 4, y - 5, 8, 40);
+
+    // Kabza
+    ctx.fillStyle = '#553322';
+    ctx.fillRect(x + 5, y - 15, 10, 25);
+
+    // Ön tutamak
+    ctx.fillStyle = '#444';
+    ctx.fillRect(x - 10, y - 45, 6, 15);
+
+    // Highlight
+    ctx.fillStyle = '#555';
+    ctx.fillRect(x - 2, y - 63, 2, 40);
+}
+
+/**
+ * Rocket Launcher çiz
+ */
+function renderRocketLauncher(ctx, x, y) {
+    // Ana tüp (geniş)
+    ctx.fillStyle = '#445544';
+    ctx.fillRect(x - 15, y - 85, 30, 65);
+
+    // Namlu ağzı (koyu)
+    ctx.fillStyle = '#333';
+    ctx.fillRect(x - 12, y - 90, 24, 10);
+
+    // Arka kısım
+    ctx.fillStyle = '#334433';
+    ctx.fillRect(x - 12, y - 25, 24, 15);
+
+    // Kabza
+    ctx.fillStyle = '#553322';
+    ctx.fillRect(x + 10, y - 35, 10, 35);
+
+    // Nişangah
+    ctx.fillStyle = '#666';
+    ctx.fillRect(x - 3, y - 95, 6, 8);
+
+    // Tetik koruma
+    ctx.fillStyle = '#444';
+    ctx.beginPath();
+    ctx.arc(x + 5, y - 15, 6, 0, Math.PI);
+    ctx.fill();
+
+    // Highlight
+    ctx.fillStyle = '#556655';
+    ctx.fillRect(x - 13, y - 82, 3, 55);
+}
+
+/**
+ * Plasma Rifle çiz
+ */
+function renderPlasmaRifle(ctx, x, y) {
+    // Enerji hücresi (parlak mavi)
+    ctx.fillStyle = '#006688';
+    ctx.fillRect(x - 8, y - 40, 16, 25);
+
+    // Enerji glow
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+    ctx.fillRect(x - 6, y - 38, 12, 21);
+
+    // Namlu (futuristik)
+    ctx.fillStyle = '#445566';
+    ctx.fillRect(x - 6, y - 75, 12, 40);
+
+    // Namlu ucu (enerji)
+    ctx.fillStyle = '#00ffff';
+    ctx.fillRect(x - 4, y - 80, 8, 8);
+
+    // Gövde
+    ctx.fillStyle = '#334455';
+    ctx.fillRect(x - 14, y - 20, 28, 22);
+
+    // Kabza
+    ctx.fillStyle = '#445566';
+    ctx.fillRect(x + 6, y - 10, 10, 28);
+
+    // Ön tutamak
+    ctx.fillStyle = '#445566';
+    ctx.fillRect(x - 12, y - 55, 6, 18);
+
+    // Parlama efekti
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
+    ctx.beginPath();
+    ctx.arc(x, y - 76, 15, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+/**
+ * Railgun çiz
+ */
+function renderRailgun(ctx, x, y) {
+    // Çok uzun namlu
+    ctx.fillStyle = '#333344';
+    ctx.fillRect(x - 4, y - 100, 8, 80);
+
+    // Enerji rayları (yanlarında)
+    ctx.fillStyle = '#ff00ff';
+    ctx.fillRect(x - 8, y - 95, 2, 70);
+    ctx.fillRect(x + 6, y - 95, 2, 70);
+
+    // Gövde
+    ctx.fillStyle = '#444455';
+    ctx.fillRect(x - 12, y - 25, 24, 25);
+
+    // Enerji çekirdeği
+    ctx.fillStyle = '#880088';
+    ctx.fillRect(x - 6, y - 35, 12, 15);
+
+    // Enerji glow
+    ctx.fillStyle = 'rgba(255, 0, 255, 0.4)';
+    ctx.fillRect(x - 4, y - 33, 8, 11);
+
+    // Kabza
+    ctx.fillStyle = '#334444';
+    ctx.fillRect(x + 6, y - 15, 10, 30);
+
+    // Namlu ucu (şarj)
+    ctx.fillStyle = '#ff44ff';
+    ctx.beginPath();
+    ctx.arc(x, y - 100, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Parlama
+    ctx.fillStyle = 'rgba(255, 0, 255, 0.15)';
+    ctx.beginPath();
+    ctx.arc(x, y - 100, 20, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Highlight
+    ctx.fillStyle = '#555566';
+    ctx.fillRect(x - 2, y - 98, 2, 75);
 }
 
 /**
